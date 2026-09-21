@@ -18,12 +18,21 @@ namespace PyLoN {
         private Vector3 roverMinimum, roverMaximum;
         private int roverWheelCount;
         private float nextRoverGeometry;
+        private PartModule completedSeparation;
+        private float completedUntil;
         public ActuatorTelemetry(Func<Vessel> current, VesselParts parts, Action<string> send,
             Func<string, string, bool> overrideActive, Action<StringBuilder, ModuleEngines> appendGimbalState) {
             this.current = current; this.parts = parts; Send = send;
             this.overrideActive = overrideActive; AppendGimbalState = appendGimbalState;
         }
         public void Reset() { nextRoverGeometry = 0; }
+        public void ClearSeparationReceipt() { completedSeparation = null; }
+        public void RetainSeparationReceipt(PartModule module)
+        {
+            if (!VesselParts.SeparationComplete(module)) return;
+            completedSeparation = module;
+            completedUntil = Time.realtimeSinceStartup + 5f;
+        }
         private Transform BodyFrame { get { return vessel.ReferenceTransform != null ? vessel.ReferenceTransform : vessel.transform; } }
         private Vector3 WorldVectorToBody(Vector3 value) { return FrameConversions.WorldToBody(BodyFrame, value); }
         private Vector3 BodyForwardWorld() { return BodyFrame.up; }
@@ -36,6 +45,10 @@ namespace PyLoN {
             foreach (var engine in parts.Get<ModuleEngines>()) SendEngineState(engine);
             foreach (var rcs in parts.Get<ModuleRCS>()) SendRcsState(rcs);
             foreach (var separation in parts.Separations()) PublishSeparation(separation);
+            // A topology change creates a new command epoch. Repeat the verified
+            // receipt long enough for the bridge to observe that epoch first.
+            if (completedSeparation != null && Time.realtimeSinceStartup < completedUntil)
+                PublishSeparation(completedSeparation);
         }
 
         public void PublishManifest()

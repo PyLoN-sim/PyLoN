@@ -5,6 +5,7 @@ from ..docking_packets import docking_port_command
 from ..packet_conversion import sanitize_ros_name
 from ..vehicle_packets import actuator_command, body_wrench_command, control_authority_command
 from ..domain.control import authority_state_from_packet, wrench_feedback_from_packet
+from ..flight_packets import flight_control_command
 
 class ControlService:
     """Control adapter composed by the PyLoN ROS node."""
@@ -83,6 +84,12 @@ class ControlService:
             self.bridge.connection.send_command(command)
         except (OSError, ValueError) as exc:
             self.bridge.get_logger().warning(f"{label} UDP send failed: {exc}")
+
+    def send_flight_control(self, message) -> None:
+        try:
+            self.send_vehicle_packet(flight_control_command(message), 'flight control')
+        except ValueError as exc:
+            self.bridge.get_logger().warning(f'Dropped invalid flight control: {exc}')
 
     def send_docking_port_command(
         self, name: str, message: DockingPortCommand

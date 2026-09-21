@@ -9,6 +9,7 @@ PyLoNのセンサーと制御APIを使うサンプルアプリケーションで
 | [軌道上のデブリ周回・撮影](debris-orbit.md) | 相対運動の推定、RCS周回制御、36度ごとの撮影 | 6軸RCS、3D LiDAR、RGBカメラ、近くのデブリ | 別ターミナルで起動 |
 | [2D LiDARとSLAM](lidar-slam.md) | 地図作成・保存、保存地図でのNav2走行 | 水平に固定した2D LiDAR、平面移動できる機体 | 別ターミナルで起動 |
 | [月面Nav2](mun-nav2.md) | 局所地図の生成、RVizのゴールへの自律走行 | Mun上の前輪操舵ローバー、3D LiDAR | launchが起動 |
+| [衛星分離・逆噴射着陸](reusable-launch.md) | Lifecycleによる打ち上げ・分離・帰還管理（実飛行未検証） | 同梱のPyLoN Phoenix | launchが起動 |
 
 リポジトリには、3D LiDARだけで6DoF位置を推定する`pylon_demo_position_estimator`もあります。起動手順は`Demo/pylon_demo_position_estimator/README.md`を参照してください。
 

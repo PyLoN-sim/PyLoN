@@ -26,6 +26,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ControlAuthorityState.msg"
   "msg/WrenchFeedback.msg"
   "msg/VesselLifecycle.msg"
+  "msg/FlightState.msg"
+  "msg/FlightControlCommand.msg"
   "msg/NearbyVessel.msg"
   "msg/NearbyVessels.msg"
   "msg/RelativeTarget.msg"

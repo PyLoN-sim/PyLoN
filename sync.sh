@@ -11,7 +11,7 @@ demos=()
 usage() {
     cat <<'USAGE'
 Usage: ./sync.sh [options]
-  --demo NAME         Include debris_orbit, position_estimator, lidar_slam or mun_rover (repeatable).
+  --demo NAME         Include debris_orbit, position_estimator, lidar_slam, mun_rover or reusable (repeatable).
   --all-demos         Include all demos and optional perception dependencies.
   --skip-ksp-build    Skip plugin build.
   --skip-ksp-sync     Skip KSP installation.
@@ -28,11 +28,11 @@ while (($#)); do
         --demo)
             [[ $# -ge 2 ]] || { usage >&2; exit 2; }
             case "$2" in
-                debris_orbit|position_estimator|lidar_slam|mun_rover) demos+=("$2");;
+                debris_orbit|position_estimator|lidar_slam|mun_rover|reusable) demos+=("$2");;
                 *) echo "Unknown demo: $2" >&2; exit 2;;
             esac
             shift 2;;
-        --all-demos) demos+=(debris_orbit position_estimator lidar_slam mun_rover); shift;;
+        --all-demos) demos+=(debris_orbit position_estimator lidar_slam mun_rover reusable); shift;;
         --skip-ksp-build) skip_ksp_build=1; shift;;
         --skip-ksp-sync) skip_ksp_sync=1; shift;;
         --skip-ros2-sync) skip_ros2_sync=1; shift;;

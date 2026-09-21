@@ -32,7 +32,9 @@ KSPのMOD導入は[Getting Started](getting-started.md)を参照してくださ�
 ./spaceros.sh run
 ```
 
-ビルド対象は`pylon_interfaces`、`pylon_bridge`、`pylon_vehicle_control`です。初回は公式イメージをダウンロードします。ソースを変更した後は`build`を再実行してください。デモやRVizはこのイメージには含めていません。
+ビルド対象は`pylon_interfaces`、`pylon_bridge`、`pylon_vehicle_control`、`pylon_demo_reusable`です。初回は公式イメージをダウンロードします。ソースを変更した後は`build`を再実行してください。RVizはこのイメージには含めていません。
+
+専用機体Phoenixの打ち上げ・衛星分離・逆噴射着陸デモは`./spaceros.sh demo`で起動します。Lifecycleによる起動条件、機体の配置、検証範囲は[デモガイド](../demos/reusable-launch.md)を参照してください。
 
 `run`はUDPポート49010で待ち受け、指令を49011へ返送します。ホスト側のbridgeを停止してから起動してください。Linuxのhost networkを使用するので、KSPの`stateHost`とbridgeの`--command-host`は`127.0.0.1`のままで接続できます。
 

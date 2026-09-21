@@ -234,6 +234,7 @@ namespace PyLoN
 
         private void OnRuntimeSessionChanged()
         {
+            if (actuatorTelemetry != null) actuatorTelemetry.ClearSeparationReceipt();
             if (control == null) return;
             StopAllVehicleControl();
             control.Authority.ReleaseForLifecycleChange("runtime_session_changed");
@@ -293,6 +294,7 @@ namespace PyLoN
                 nextManifestTime = Time.realtimeSinceStartup + 1f;
             }
             telemetry.SendGroundTruth();
+            SendFlightState();
             actuatorTelemetry.PublishStates();
         }
 
@@ -316,6 +318,7 @@ namespace PyLoN
         {
             if (envelope == null ||
                 (envelope.type != "pylon_body_wrench_command" &&
+                 envelope.type != "pylon_flight_control_command" &&
                  envelope.type != "pylon_actuator_command" &&
                  envelope.type != "pylon_control_authority_command"))
             {
@@ -330,6 +333,10 @@ namespace PyLoN
                 if (envelope.type == "pylon_control_authority_command" && envelope.version == ControlProtocolVersion)
                 {
                     instance.ApplyControlAuthority(JsonUtility.FromJson<PyLoNControlAuthorityCommand>(json));
+                }
+                else if (envelope.type == "pylon_flight_control_command" && envelope.version == ControlProtocolVersion)
+                {
+                    instance.ApplyFlightControl(JsonUtility.FromJson<PyLoNFlightControlCommand>(json));
                 }
                 else if (envelope.type == "pylon_body_wrench_command" && envelope.version == ControlProtocolVersion)
                 {
@@ -546,6 +553,7 @@ namespace PyLoN
                 return;
             }
             rawRequestedWrench = raw;
+            flightInput = null;
             requestedWrench = filtered.Wrench;
             requestedForce = ToUnity(requestedWrench.Force);
             requestedTorque = ToUnity(requestedWrench.Torque);
@@ -657,6 +665,8 @@ namespace PyLoN
                 }
                 else
                 {
+                    var clamp = module as LaunchClamp;
+                    if (clamp != null) clamp.Release();
                     var fairing = module as ModuleProceduralFairing;
                     if (fairing != null)
                     {
@@ -664,6 +674,7 @@ namespace PyLoN
                     }
                 }
                 actuatorTelemetry.PublishSeparation(module);
+                actuatorTelemetry.RetainSeparationReceipt(module);
                 nextManifestTime = 0f;
             if (actuatorTelemetry != null) actuatorTelemetry.Reset();
                 return;
@@ -838,6 +849,17 @@ namespace PyLoN
             }
             ApplyDirectEngineAndRcsCommands();
             ApplyGimbalCommands();
+            if (flightInput != null)
+            {
+                if (Time.realtimeSinceStartup <= flightInputExpires &&
+                    control != null && control.Authority.Mode == ControlAuthorityMode.Owned)
+                {
+                    state.pitch = (float)flightInput.pitch;
+                    state.yaw = (float)flightInput.yaw;
+                    state.roll = (float)flightInput.roll;
+                }
+                else flightInput = null;
+            }
             if (!wrenchActive)
             {
                 return;
@@ -1442,6 +1464,7 @@ namespace PyLoN
 
         private void StopAllVehicleControl()
         {
+            flightInput = null;
             wrenchActive = false;
             requestedForce = Vector3.zero;
             requestedTorque = Vector3.zero;

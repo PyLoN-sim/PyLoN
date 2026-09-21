@@ -7,11 +7,12 @@ container="${PYLON_SPACEROS_CONTAINER:-pylon-spaceros}"
 usage() {
     cat <<'USAGE'
 Usage: ./spaceros.sh COMMAND [arguments]
-  build             Build the current core ROS sources against Space ROS.
+  build             Build the core ROS sources and reusable demo against Space ROS.
   run [bridge args] Start the bridge (Ctrl+C stops it).
+  demo [args]       Run reusable launch demo and bridge; configure then activate via lifecycle.
   shell             Open a new Space ROS shell.
   exec COMMAND ...  Run a command in the running bridge container.
-  test              Run the bridge and vehicle control tests in Space ROS.
+  test              Run bridge, vehicle control and reusable mission tests in Space ROS.
   stop              Stop the running bridge container.
 Environment: PYLON_SPACEROS_IMAGE, PYLON_SPACEROS_CONTAINER, ROS_DOMAIN_ID,
              ROS_AUTOMATIC_DISCOVERY_RANGE (default LOCALHOST).
@@ -22,7 +23,7 @@ action="${1:-help}"
 if (($#)); then shift; fi
 case "$action" in
     help|-h|--help) usage; exit 0;;
-    build|run|shell|exec|test|stop) ;;
+    build|run|demo|shell|exec|test|stop) ;;
     *) usage >&2; exit 2;;
 esac
 command -v docker >/dev/null || { echo 'Docker is required. See docs/guide/space-ros.md.' >&2; exit 1; }
@@ -39,6 +40,9 @@ case "$action" in
             ros2 run pylon_bridge udp_bridge --host 127.0.0.1 "$@";;
     shell)
         exec docker run "${runtime[@]}" "${interactive[@]}" "$image" bash --norc;;
+    demo)
+        exec docker run "${runtime[@]}" "${interactive[@]}" --name "$container" "$image" \
+            ros2 launch pylon_demo_reusable demo.launch.py "$@";;
     exec)
         (($#)) || { echo 'exec requires a command' >&2; exit 2; }
         exec docker exec "${interactive[@]}" "$container" /pylon-entrypoint.sh "$@";;
@@ -47,6 +51,7 @@ case "$action" in
         exec docker run --rm --init "$image" bash -ec '
             python3 -m pytest -q src/pylon_bridge/test
             python3 -m pytest -q src/pylon_vehicle_control/test
+            python3 -m pytest -q src/pylon_demo_reusable/test
         ';;
     stop) exec docker stop "$container";;
 esac

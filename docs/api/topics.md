@@ -40,6 +40,8 @@ Topicは、操作中の機体に属するものを`/ksp_vessel`、bridgeプロ�
 | Subscribe | `/ksp_vessel/control/authority/command` | `ControlAuthorityCommand` | Reliable。lease・SAS排他・e-stop |
 | Publish | `/ksp_vessel/control/authority/state` | `ControlAuthorityState` | Reliable / Transient Local。確定したowner |
 | Subscribe | `/ksp_vessel/control/wrench_command` | `BodyWrenchCommand` | Reliable。lease-bound `base_link` Wrench |
+| Subscribe | `/ksp_vessel/control/flight_command` | `pylon_interfaces/msg/FlightControlCommand` | Reliable。lease付きstock操舵入力・着陸脚 |
+| Publish | `/ksp_vessel/ground_truth/flight` | `pylon_interfaces/msg/FlightState` | Best Effort。高度・軌道・燃料・接地状態とbody-frame地表軸。Ground Truth無効時は配信しない |
 | Publish | `/ksp_vessel/control/wrench_feedback` | `WrenchFeedback` | requested / allocated / achieved / residual |
 | Publish | `/ksp_vessel/ground_truth/pose` | `geometry_msgs/msg/PoseStamped` | Best Effort。ENU位置・姿勢 |
 | Publish | `/ksp_vessel/ground_truth/nearby_vessels` | `pylon_interfaces/msg/NearbyVessels` | 自機と近隣機体の同時刻・同原点の絶対位置と速度。最大32機、2500 m以内、同天体・loaded/unpacked |

@@ -119,7 +119,30 @@ ROS側の上限よりKSP側を大きく設定し、KSP側は故障時の最終�
 
 `VesselLifecycle`は`UNAVAILABLE / ACTIVE / CHANGED / STALE`、generation、origin sequence、model readinessを公開します。display nameではなく`vessel_id`が制御identityです。機体切替時、既存leaseと不一致なproxy modelは即座に無効になります。
 
-## 型付きアクチュエータ
+## 飛行デモ用の操舵・状態
+
+`/ksp_vessel/control/flight_command`は`FlightControlCommand`を受信します。
+`pitch / yaw / roll`はKSP標準の正規化入力（−1〜1）で、リアクションホイール、
+エンジンジンバル、舵面に伝わります。ROSの角度・トルクではありません。
+`landing_gear`はGear action groupを設定します。推力は既存の`EngineCommand`で指定します。
+
+すべての指令に同じlease identityと増加sequenceが必要です。`timeout_sec`は0.05〜1秒。
+非有限・範囲外入力、他機体・他ownerからの指令は拒否します。操舵とBody Wrenchは
+同じ姿勢軸を同時に所有せず、後から受理された方式が優先されます。
+timeout、lease喪失、e-stop、機体変更で操舵を解除します。着陸脚の展開状態は維持します。
+Body Wrench用の力・トルクフィルターとは別の、stock入力を使う低水準APIです。
+
+`/ksp_vessel/ground_truth/flight`は`FlightState`（Best Effort / depth 10）を配信します。
+`--disable-ground-truth`では配信しません。高度はASLと機体基準のAGL、質量はkg、
+速度はm/s、動圧はPa、緯度経度は度です。燃料・酸化剤・電力はKSPのresource unitです。
+遠点・近点高度、遠点までの秒数、接地・着水状態も含みます。
+`up_body / east_body / north_body`は現在位置の地表座標軸を`base_link`で表した単位ベクトル、
+速度・軌道速度・角速度も`base_link`です。`universal_time`はKSPの計測時刻です。
+
+この出力はシミュレータ真値です。地形高度は脚先からの距離ではないため、
+着陸制御では機体寸法・重心移動を考慮してください。利用例は[衛星分離・逆噴射着陸](../demos/reusable-launch.md)。
+
+## 型付きアクチュエータの共通条件
 
 `EngineCommand`、`RcsCommand`、`WheelCommand`、`MotorCommand`、`SeparationCommand`も同じ`vessel_id`、`controller_id`、`lease_id`、`sequence`を必須とします。ownerでない指令はKSPが拒否します。不可逆な分離操作もlease外では実行されません。
 

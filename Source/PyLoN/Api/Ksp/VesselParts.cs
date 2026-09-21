@@ -21,17 +21,19 @@ namespace PyLoN {
         }
         public IEnumerable<PartModule> Separations() {
             foreach (var module in Get<PartModule>())
-                if (module is ModuleDecouplerBase || module is ModuleProceduralFairing) yield return module;
+                if (module is ModuleDecouplerBase || module is ModuleProceduralFairing || module is LaunchClamp) yield return module;
         }
         internal static string SeparationMechanism(PartModule module)
         {
             if (module is ModuleDecouplerBase) return "decoupler";
             if (module is ModuleProceduralFairing) return "fairing";
+            if (module is LaunchClamp) return "launch_clamp";
             return string.Empty;
         }
 
         internal static bool SeparationAvailable(PartModule module)
         {
+            if (module is LaunchClamp) return module.part != null && module.part.parent != null;
             var decoupler = module as ModuleDecouplerBase;
             if (decoupler != null)
             {
@@ -47,6 +49,7 @@ namespace PyLoN {
 
         internal static bool SeparationComplete(PartModule module)
         {
+            if (module is LaunchClamp) return module.part != null && module.part.parent == null;
             var decoupler = module as ModuleDecouplerBase;
             if (decoupler != null)
             {

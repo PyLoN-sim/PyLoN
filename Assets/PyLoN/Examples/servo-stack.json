@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "PyLoN servo stack",
+  "facility": "VAB",
+  "parts": [
+    {
+      "id": "base",
+      "part": "pylon.servo.size0",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0, 1]
+    },
+    {
+      "id": "upper",
+      "part": "pylon.servo.size0",
+      "position": [0, 0.14, 0],
+      "rotation": [0, 0, 0, 1],
+      "parent": "base",
+      "attach": { "mode": "stack", "node": "bottom", "parent_node": "top" }
+    }
+  ]
+}

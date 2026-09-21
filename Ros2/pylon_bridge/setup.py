@@ -20,6 +20,7 @@ setup(
     entry_points={
         "console_scripts": [
             "udp_bridge = pylon_bridge.udp_bridge:main",
+            "craft_builder = pylon_bridge.craft_builder:main",
         ],
     },
 )

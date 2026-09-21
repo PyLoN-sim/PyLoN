@@ -9,7 +9,7 @@ from .packet_conversion import as_float, as_int, sanitize_ros_name
 Vector3 = Tuple[float, float, float]
 Quaternion = Tuple[float, float, float, float]
 SUPPORTED_ACTUATOR_KINDS = ("wheel", "engine", "rcs", "motor", "separation")
-SUPPORTED_SEPARATION_MECHANISMS = ("decoupler", "fairing")
+SUPPORTED_SEPARATION_MECHANISMS = ("decoupler", "fairing", "launch_clamp")
 
 
 def _finite(value: Any, field: str) -> float:

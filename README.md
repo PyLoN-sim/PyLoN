@@ -41,6 +41,7 @@ Space ROSを使用する場合は[Space ROSで動かす](docs/guide/space-ros.md
 - [軌道上のデブリ周回・撮影](docs/demos/debris-orbit.md)
 - [2D LiDARとSLAM](docs/demos/lidar-slam.md)：地図作成・保存・Nav2走行
 - [月面Nav2](docs/demos/mun-nav2.md)
+- [衛星分離・逆噴射着陸](docs/demos/reusable-launch.md)：Space ROS lifecycleと専用機体Phoenix（実飛行未検証）
 
 ## PyLoN本体への貢献
 

@@ -41,6 +41,8 @@ RGB画像は上端始まりの`rgb8`で、対応する`CameraInfo`とtimestamp�
 
 ## Build
 
+パーツの位置・回転・接続をJSONで指定して`.craft`を生成する`craft_builder`コマンドも含みます。SandboxのVAB/SPHで使用します。[配置ファイルとコマンドの使い方](../../docs/api/craft-builder.md)。このコマンドはROSを起動せず、Python標準ライブラリだけでも実行できます。
+
 ROS2 Jazzy（Ubuntu 24.04、Python 3.12）を対象とします。
 
 ```bash

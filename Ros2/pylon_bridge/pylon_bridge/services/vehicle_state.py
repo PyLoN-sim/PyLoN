@@ -10,6 +10,8 @@ from ..docking_packets import docking_port_manifest_from_packet, docking_port_st
 from ..motor_packets import MotorStateData, motor_state_from_packet
 from ..vehicle_packets import actuator_names_to_remove, actuator_manifest_from_packet, actuator_state_from_packet, ground_truth_from_packet, nearby_vessels_from_packet
 from ..domain.time_alignment import extrapolate_pose
+from pylon_interfaces.msg import FlightState
+from ..flight_packets import flight_state_from_packet, VECTORS
 
 class VehicleStateService:
     """Vehicle state adapter composed by the PyLoN ROS node."""
@@ -46,6 +48,24 @@ class VehicleStateService:
             transform.transform.rotation.w,
         ) = rotation
         self.bridge.transform_broadcaster.sendTransform(transform)
+
+    def publish_flight_state(self, packet) -> None:
+        if not self.bridge.ground_truth_enabled:
+            return
+        try:
+            values = flight_state_from_packet(packet)
+        except ValueError as exc:
+            self.bridge.get_logger().warning(f'Dropped invalid flight state: {exc}')
+            return
+        message = FlightState()
+        message.header.stamp = self.bridge.flight.stamp_for_universal_time(values['universal_time'])
+        message.header.frame_id = 'base_link'
+        for field, value in values.items():
+            if field in VECTORS:
+                getattr(message, field).x, getattr(message, field).y, getattr(message, field).z = value
+            else:
+                setattr(message, field, value)
+        self.bridge.flight_state_publisher.publish(message)
 
     @staticmethod
     def rotate_world_to_body(rotation: Tuple[float, float, float, float], vector: Tuple[float, float, float]) -> Tuple[float, float, float]:

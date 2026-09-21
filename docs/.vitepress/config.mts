@@ -48,6 +48,7 @@ export default defineConfig({
         text: 'デモ',
         items: [
           { text: 'デモ一覧・共通準備', link: '/demos/' },
+          { text: '衛星分離・逆噴射着陸', link: '/demos/reusable-launch' },
           { text: '軌道上のデブリ周回・撮影', link: '/demos/debris-orbit' },
           { text: '2D LiDARとSLAM', link: '/demos/lidar-slam' },
           { text: '月面Nav2', link: '/demos/mun-nav2' }
@@ -58,7 +59,8 @@ export default defineConfig({
         items: [
           { text: 'Topic一覧', link: '/api/topics' },
           { text: '機体制御とGround Truth', link: '/api/vehicle-control' },
-          { text: 'Active vesselモデル', link: '/api/vessel-model' }
+          { text: 'Active vesselモデル', link: '/api/vessel-model' },
+          { text: '配置ファイルから機体を組み立てる', link: '/api/craft-builder' }
         ]
       },
       {
