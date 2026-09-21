@@ -8,9 +8,8 @@ COPY LICENSE LICENSE
 COPY --chown=spaceros-user:spaceros-user Ros2/pylon_interfaces src/pylon_interfaces
 COPY --chown=spaceros-user:spaceros-user Ros2/pylon_bridge src/pylon_bridge
 COPY --chown=spaceros-user:spaceros-user Ros2/pylon_vehicle_control src/pylon_vehicle_control
-COPY --chown=spaceros-user:spaceros-user Demo/pylon_demo_reusable src/pylon_demo_reusable
 RUN source /opt/ros/spaceros/setup.bash && \
-    colcon build --packages-up-to pylon_bridge pylon_vehicle_control pylon_demo_reusable \
+    colcon build --packages-up-to pylon_bridge pylon_vehicle_control \
       --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 COPY Docker/spaceros/entrypoint.sh /pylon-entrypoint.sh

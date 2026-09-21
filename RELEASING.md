@@ -32,7 +32,7 @@ ZIP直下は`GameData/PyLoN/`で、`LICENSE`、`Plugins/PyLoN.dll`、`Config/`�
 ## GitHubへ登録する
 
 1. 変更をコミット・pushし、ビルドに使ったコミットをリリース対象にします。
-2. [Releases](https://github.com/Ampoi/KSP_ROS2/releases)の「Draft a new release」で同じバージョンのタグを選択または作成し、対象コミットを確認します。
+2. [Releases](https://github.com/PyLoN-sim/PyLoN/releases)の「Draft a new release」で同じバージョンのタグを選択または作成し、対象コミットを確認します。
 3. `dist/`のZIPと`.zip.sha256`を添付し、変更内容を記載して公開します。候補版はpre-releaseにします。
 
 GitHubが自動生成する「Source code (zip/tar.gz)」はMOD配布物ではありません。利用者には添付した`PyLoN-vX.Y.Z.zip`を案内してください。

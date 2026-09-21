@@ -3,6 +3,7 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ksp_install="${KSPDIR:-$HOME/.local/share/Steam/steamapps/common/Kerbal Space Program}"
+demos_root="${PYLON_DEMOS_DIR:-$repo_root/../demos}"
 ros_workspace="${ROS2_WS:-$HOME/ros2_ws}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 lock_file="${PYLON_SYNC_LOCK_FILE:-${TMPDIR:-/tmp}/pylon-sync.lock}"
@@ -18,7 +19,8 @@ Usage: ./sync.sh [options]
   --skip-ros2-sync    Skip ROS source synchronization.
   --skip-ros2-build   Skip colcon build.
   -h, --help          Show help.
-Environment: KSPDIR, ROS2_WS, ROS_SETUP, PYLON_SYNC_LOCK_FILE.
+Environment: KSPDIR, ROS2_WS, ROS_SETUP, PYLON_SYNC_LOCK_FILE, PYLON_DEMOS_DIR.
+Demos are read from ../demos by default (https://github.com/PyLoN-sim/demos).
 Core packages: pylon_interfaces, pylon_bridge, pylon_vehicle_control.
 Recognized pre-PyLoN installations are backed up outside GameData/src before replacement.
 USAGE
@@ -46,16 +48,25 @@ exec 9>"$lock_file"
 flock 9
 trap 'flock -u 9' EXIT
 packages=(pylon_interfaces pylon_bridge pylon_vehicle_control)
-source_dirs=(Ros2/pylon_interfaces Ros2/pylon_bridge Ros2/pylon_vehicle_control)
+source_dirs=("$repo_root/Ros2/pylon_interfaces" "$repo_root/Ros2/pylon_bridge" "$repo_root/Ros2/pylon_vehicle_control")
 for demo in "${demos[@]}"; do
     package="pylon_demo_$demo"
     if [[ " ${packages[*]} " != *" $package "* ]]; then
-        packages+=("$package"); source_dirs+=("Demo/$package")
+        packages+=("$package"); source_dirs+=("$demos_root/$package")
     fi
     if [[ ( "$demo" == position_estimator || "$demo" == mun_rover ) && " ${packages[*]} " != *" pylon_perception "* ]]; then
-        packages+=(pylon_perception); source_dirs+=(Ros2/pylon_perception)
+        packages+=(pylon_perception); source_dirs+=("$repo_root/Ros2/pylon_perception")
     fi
 done
+# Validate every source before builds or installation can modify a workspace.
+if (( !skip_ros2_sync )); then
+    for source_dir in "${source_dirs[@]}"; do
+        [[ -d "$source_dir" ]] || {
+            echo "Missing source: $source_dir. Clone PyLoN-sim/demos beside PyLoN or set PYLON_DEMOS_DIR." >&2
+            exit 1
+        }
+    done
+fi
 sync_dir() {
     [[ -d "$1" ]] || { echo "Missing source: $1" >&2; exit 1; }
     mkdir -p "$2"
@@ -76,7 +87,7 @@ if (( !skip_ksp_sync )); then
 fi
 if (( !skip_ros2_sync )); then
     python3 "$repo_root/Migration/pylon_migrate.py" --retire-install --apply --ros2-ws "$ros_workspace"
-    for i in "${!packages[@]}"; do sync_dir "$repo_root/${source_dirs[$i]}" "$ros_workspace/src/${packages[$i]}"; done
+    for i in "${!packages[@]}"; do sync_dir "${source_dirs[$i]}" "$ros_workspace/src/${packages[$i]}"; done
 fi
 if (( !skip_ros2_build )); then
     [[ -f "$ros_setup" ]] || { echo "Missing ROS setup: $ros_setup" >&2; exit 1; }

@@ -4,7 +4,7 @@ PyLoNのUDP JSONを受け取り、LiDAR、RGBカメラ、ロボティクスモ�
 
 - Default vessel IMU: `/ksp_vessel/imu/data_raw` (`sensor_msgs/msg/Imu`, 3軸角速度rad/s・比力m/s²、`base_link`、最大30 Hz)。全機体で追加パーツ不要。操作中の機体に自動追従し、姿勢なし（`orientation_covariance[0]=-1`）。静止時は上向き約+g、自由落下時は約0。角速度は慣性系基準で、KSPの回転物理座標系では惑星の自転を含めます。
 
-`--disable-ground-truth`を付けると、真値パケットを破棄し、真値Topicと`pylon_ground_truth_enu -> base_link`を配信しません。機体IDとlifecycleは独立したセッションheartbeatから生成し、`origin_sequence`はROS側のセッション世代です。LiDAR＋IMUだけで動く[デブリ周回デモ](../../Demo/pylon_demo_debris_orbit/README.md)の検証に使用します。
+`--disable-ground-truth`を付けると、真値パケットを破棄し、真値Topicと`pylon_ground_truth_enu -> base_link`を配信しません。機体IDとlifecycleは独立したセッションheartbeatから生成し、`origin_sequence`はROS側のセッション世代です。LiDAR＋IMUだけで動く[デブリ周回デモ](https://github.com/PyLoN-sim/demos/blob/main/pylon_demo_debris_orbit/README.md)の検証に使用します。
 
 センサーtimestampは初回のKSP universal timeとROS時計のoffsetを固定して対応付けます。遅延した画像や物理時間の進みの遅さでoffsetを変更するとジャイロ積分に架空の時間差が入るため、飛行中は補正しません。セッションheartbeatで機体切替や時刻の巻き戻りによるepoch変更を検知した際に初期化します。受信timeoutは単調時計で判定します。
 - 2D LiDAR: `sensor_msgs/msg/LaserScan`
@@ -46,7 +46,7 @@ RGB画像は上端始まりの`rgb8`で、対応する`CameraInfo`とtimestamp�
 
 ## Build
 
-パーツの位置・回転・接続をJSONで指定して`.craft`を生成する`craft_builder`コマンドも含みます。SandboxのVAB/SPHで使用します。[配置ファイルとコマンドの使い方](../../docs/api/craft-builder.md)。このコマンドはROSを起動せず、Python標準ライブラリだけでも実行できます。
+パーツの位置・回転・接続をJSONで指定して`.craft`を生成する`craft_builder`コマンドも含みます。SandboxのVAB/SPHで使用します。[配置ファイルとコマンドの使い方](https://github.com/PyLoN-sim/docs/blob/main/api/craft-builder.md)。このコマンドはROSを起動せず、Python標準ライブラリだけでも実行できます。
 
 ROS2 Jazzy（Ubuntu 24.04、Python 3.12）を対象とします。
 
@@ -61,7 +61,7 @@ colcon build --packages-up-to pylon_bridge
 source install/setup.bash
 ```
 
-Humbleなど別のROS版でビルドしたworkspaceと共用せず、Jazzy用のworkspaceを用意してください。初回導入は[Getting Started](../../docs/guide/getting-started.md)を参照してください。
+Humbleなど別のROS版でビルドしたworkspaceと共用せず、Jazzy用のworkspaceを用意してください。初回導入は[Getting Started](https://github.com/PyLoN-sim/docs/blob/main/guide/getting-started.md)を参照してください。
 
 ## Run
 
@@ -129,11 +129,11 @@ KSPからbridgeへのモデル経路は既定でfail-closedです。KSP側の`PY
 
 ## Motor control
 
-Lease付き`pylon_interfaces/msg/MotorCommand`を使用します。[Topicと単位](../../docs/parts/motors.md)。
+Lease付き`pylon_interfaces/msg/MotorCommand`を使用します。[Topicと単位](https://github.com/PyLoN-sim/docs/blob/main/parts/motors.md)。
 
 ## Propulsion control
 
-EngineCommand・RcsCommand・BodyWrenchCommandを使用します。[制御契約](../../docs/api/vehicle-control.md)。
+EngineCommand・RcsCommand・BodyWrenchCommandを使用します。[制御契約](https://github.com/PyLoN-sim/docs/blob/main/api/vehicle-control.md)。
 
 ## Test
 

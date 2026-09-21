@@ -8,9 +8,6 @@
 !Ros2/pylon_bridge/**
 !Ros2/pylon_vehicle_control/
 !Ros2/pylon_vehicle_control/**
-!Demo/
-!Demo/pylon_demo_reusable/
-!Demo/pylon_demo_reusable/**
 !Docker/
 !Docker/spaceros/
 !Docker/spaceros/Dockerfile

@@ -13,8 +13,6 @@ obj/
 __pycache__/
 *.pyc
 node_modules/
-docs/.vitepress/cache/
-docs/.vitepress/dist/
 # Generated mod installation tree and release archives.
 /GameData/
 /dist/

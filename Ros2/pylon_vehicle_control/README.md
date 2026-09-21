@@ -30,4 +30,4 @@ orbit demo enables this option to compensate for sample age at orbital speeds.
 
 ## Contributing to PyLoN
 
-See the [contributor guide](../../docs/contributing/index.md) for build, validation, and source organization.
+See the [contributor guide](https://github.com/PyLoN-sim/docs/blob/main/contributing/index.md) for build, validation, and source organization.
