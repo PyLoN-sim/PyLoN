@@ -31,13 +31,17 @@ namespace PyLoN
             };
             for (int i = 0; i < items.Count; i++)
             {
-                var item = Object(items[i], "id,part,position,rotation", "parent,attach,stage");
+                var item = Object(items[i], "id,part,position,rotation", "parent,attach,stage,autostrut,rigid_attachment,separation_force_percent,role");
                 var part = new CraftPartSpec
                 {
                     id = Text(item, "id"), part = Text(item, "part"), position = Vector(item["position"], 3),
                     rotation = Vector(item["rotation"], 4), parent = item.ContainsKey("parent") ? Text(item, "parent") : "",
                     stage = item.ContainsKey("stage") ? Integer(item, "stage") : -1
                 };
+                if (item.ContainsKey("autostrut")) part.autostrut = Text(item, "autostrut");
+                if (item.ContainsKey("rigid_attachment")) part.rigid_attachment = Boolean(item, "rigid_attachment");
+                if (item.ContainsKey("separation_force_percent")) part.separation_force_percent = Number(item["separation_force_percent"]);
+                if (item.ContainsKey("role")) part.role = Text(item, "role");
                 if (item.ContainsKey("attach"))
                 {
                     var a = Object(item["attach"], "mode,node,parent_node");
@@ -74,7 +78,9 @@ namespace PyLoN
                     {"id", p.id ?? ""}, {"part", p.part}, {"title", p.title}, {"parent", p.parent ?? ""},
                     {"position", p.position}, {"rotation", p.rotation}, {"stage", p.stage}, {"nodes", nodes},
                     {"surfaceAttach", p.surfaceAttach}, {"allowSurfaceAttach", p.allowSurfaceAttach},
-                    {"stackAttach", p.stackAttach}, {"allowStack", p.allowStack}
+                    {"stackAttach", p.stackAttach}, {"allowStack", p.allowStack},
+                    {"autostrut", p.autostrut}, {"rigid_attachment", p.rigid_attachment},
+                    {"separation_force_percent", p.separation_force_percent}, {"role", p.role}
                 });
             }
             return CraftJson.Stringify(new Dictionary<string, object>

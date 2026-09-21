@@ -23,7 +23,7 @@ namespace PyLoN.Application.Control
             Vector3Value angularVelocity,
             out string rejectionReason)
         {
-            if (!Authority.AcceptCommand(controllerId, leaseId, now, sequence, out rejectionReason))
+            if (!Authority.AcceptCommand(controllerId, leaseId, now, sequence, "attitude", out rejectionReason))
             {
                 return null;
             }

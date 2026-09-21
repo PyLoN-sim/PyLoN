@@ -31,6 +31,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/NearbyVessel.msg"
   "msg/NearbyVessels.msg"
   "msg/RelativeTarget.msg"
+  "msg/ControlBatch.msg"
+  "msg/ControlSnapshot.msg"
+  "msg/SimulatorState.msg"
+  "msg/PartThermalState.msg"
+  "msg/VehicleHealth.msg"
+  "msg/SeparationResult.msg"
+  "srv/GetSeparationResult.srv"
   DEPENDENCIES std_msgs geometry_msgs
 )
 

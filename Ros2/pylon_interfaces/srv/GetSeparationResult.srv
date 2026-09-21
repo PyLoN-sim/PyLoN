@@ -1,0 +1,12 @@
+# Copy the original identity from SeparationCommand / SeparationResult.
+string operation_id
+string original_runtime_instance
+string original_runtime_epoch
+string original_vessel_id
+---
+# found means the receipt was retained; inspect result.completed/result.success.
+bool found
+# On a cache miss, query KSP without blocking; retry after the result topic updates.
+bool query_sent
+string reason
+SeparationResult result

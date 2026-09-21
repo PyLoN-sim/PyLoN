@@ -19,7 +19,14 @@ namespace PyLoN
             {
                 var json = JsonUtility.ToJson(new SessionPacket { type = "pylon_session", version = 1,
                     vesselId = RuntimeSession.VesselId, vesselName = RuntimeSession.VesselName,
-                    available = RuntimeSession.Available, universalTime = Planetarium.GetUniversalTime() });
+                    available = RuntimeSession.Available,
+                    universalTime = Planetarium.fetch == null ? 0.0 : Planetarium.GetUniversalTime(),
+                    observationSequence = (long)Time.frameCount,
+                    realtimeSinceStartup = Time.realtimeSinceStartup,
+                    paused = FlightDriver.Pause || Time.timeScale == 0f,
+                    packed = FlightGlobals.ActiveVessel != null && FlightGlobals.ActiveVessel.packed,
+                    warpRate = TimeWarp.fetch == null ? 1.0 : TimeWarp.CurrentRate,
+                    physicsWarp = TimeWarp.fetch != null && TimeWarp.WarpMode == TimeWarp.Modes.LOW });
                 var bytes = TelemetryPacketCodec.Encode(json);
                 client.Send(bytes, bytes.Length, RuntimeSettings.StateHost, RuntimeSettings.StatePort);
             }
@@ -32,6 +39,11 @@ namespace PyLoN
             public int version;
             public bool available;
             public double universalTime;
+            // Frame identity remains meaningful while UT is stopped. Update and
+            // realtimeSinceStartup continue while the flight pause menu is open.
+            public long observationSequence;
+            public double realtimeSinceStartup, warpRate;
+            public bool paused, packed, physicsWarp;
         }
     }
 }

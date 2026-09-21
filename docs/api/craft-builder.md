@@ -61,6 +61,14 @@ KSPの場所は`KSPDIR`、またはサブコマンドの前の`--ksp-dir`で指�
 | `parent` | 親の`id`。ルートでは省略または空文字列 |
 | `attach` | 子と親を結ぶ接続。ルートでは省略 |
 | `stage` | 保存時のステージ初期値。省略時`-1`、指定可能範囲`-1`〜`99`。読み込み時にKSPが整理するため、表示上の番号を固定する指定ではない |
+| `autostrut` | 任意。`off` / `root` / `heaviest` / `grandparent`。省略時はパーツ既定値を維持。脚などが持つ強制autostrutの上書きは拒否 |
+| `rigid_attachment` | 任意。剛結合を有効にする`true`または無効にする`false`。省略時はパーツ既定値を維持 |
+| `separation_force_percent` | 任意。分離力の倍率（既定の分離力に対する0〜100%）。stockの`ModuleDecouplerBase`をちょうど1個持つパーツのみ指定可能 |
+| `role` | 任意。`return_engine` / `satellite_separator`などの役割。先頭は英字、以後は英数字・`_`・`-`で64文字以内。複数パーツへの同じ役割の指定も可能 |
+
+たとえば分離器には`"autostrut": "grandparent", "rigid_attachment": true, "separation_force_percent": 15, "role": "satellite_separator"`を指定できます。`role`はKSPの保存可能なカスタムパーツデータに保持され、craftの再読み込み・通常のセーブ・分離で機体が変わった後もパーツに付随します。`parts` / `build` / `inspect`の応答にもこれらの設定を返します。`EngineState.role`・`SeparationState.role`から制御対象のパーツを識別できます。`separation_force_percent`は対象外または複数の分離モジュールを持つ場合`null`です。`role`未設定は空文字列です。
+
+役割は`Part.customPartData`の`pylon.role=`項目に保存し、他のカスタム項目を保持します。追加のPartModuleやModuleManagerは不要です。更新後はKSPを再起動してください。役割は識別用のメタデータで、自動的に制御権やステージ動作を変更しません。
 
 座標系は**KSP/Unityのエディタ座標**です。ROSの`base_link`とは異なります。+Yが上方向で、+X/+Zはエディタの水平軸です。`inspect`はルートの位置・姿勢を基準に計測値を返します。ルートは位置`[0,0,0]`、回転`[0,0,0,1]`で指定してください。エディタ全体での中心合わせによる移動とは独立に、パーツ間の配置を保ちます。
 
@@ -78,7 +86,7 @@ KSPの場所は`KSPDIR`、またはサブコマンドの前の`--ksp-dir`で指�
 
 ## 保存と検証
 
-生成時はインストール済みのパーツを使用し、既定のモジュール・リソースをKSPの保存処理へ渡します。保存データをKSPで再読み込みし、個数・パーツ種別・親子関係・接続・位置・回転を検証してから、現在のセーブの`Ships/VAB`または`Ships/SPH`へ保存します。検証の位置許容差は0.5mm、回転は0.05度です。
+生成時はインストール済みのパーツを使用し、既定のモジュール・リソースと明示した設定をKSPの保存処理へ渡します。保存データをKSPで再読み込みし、個数・パーツ種別・親子関係・接続・位置・回転、および指定したautostrut・剛結合・分離力・役割を検証してから、現在のセーブの`Ships/VAB`または`Ships/SPH`へ保存します。検証の位置許容差は0.5mm、回転は0.05度です。
 
 保存名は`PyLoN_<request-id>.craft`で、既存ファイルを上書きしません。表示名はJSONの`name`です。`build`の結果は仕様中の`id`、`inspect`はKSPのcraft IDに`p`を付けた識別子を返します。
 
@@ -86,7 +94,7 @@ v1の制限:
 
 - Sandboxのエディタ専用。Flight中のスポーンや自動発進は行いません。
 - 1〜256パーツ、入力1MiB以内、位置の各成分は±1000m以内。
-- パーツの既定バリアント・既定状態を使用します。リソース量やPartModule設定、対称配置、ストラット／燃料ラインの追加ターゲット、ロボティクスの初期角度などの個別指定は未対応です。
+- 上記の設定以外はパーツの既定バリアント・既定状態を使用します。リソース量や任意のPartModule設定、対称配置、ストラット／燃料ラインの追加ターゲット、ロボティクスの初期角度などの個別指定は未対応です。
 - 接続と幾何配置の検証は、物理的な安定性、干渉のなさ、飛行可能性を保証しません。配置が重なる場合も自動修正しません。
 - 同じ環境・指定での配置を対象とします。KSPやMODが発行するID等を含むファイル全体のバイト一致は保証しません。
 
@@ -110,5 +118,8 @@ v1の制限:
 | KSP | `ShipConstruct.LoadShip(ConfigNode)`と一時オブジェクトの破棄 | [Extraplanetary Launchpads / BuildControl](https://github.com/taniwha/Extraplanetary-Launchpads/blob/0bb3c5b0bf083e4284611682cc4f65f6b4a9d77b/Source/BuildControl.cs)（GPLv3以降） |
 | KSP | `EditorLogic.LoadShipFromFile`とエディタの初期化状態確認 | [kRPC / Editor](https://github.com/krpc/krpc/blob/8cfe77a515f39495e6c2c10b42010b2d206f0729/service/SpaceCenter/src/Services/Editor.cs)（SpaceCenter部分はGPLv3以降） |
 | KSP | `ShipConstruction.ShipConfig`の退避・復元 | [VesselMover / VesselSpawn](https://github.com/jrodrigv/VesselMover/blob/875bbcef2ec00501ebe673daecc0ae21263e9e6b/VesselSpawn.cs)（MITの宣言あり） |
+| KSP | `Part.autoStrutMode`・`Part.rigidAttachment`で構造設定を適用 | [EditorExtensionsRedux](https://github.com/linuxgurugamer/EditorExtensionsRedux/blob/bc7430b4e061987e847230e163986ed8bb68192c/EditorExtensionsRedux/EditorExtensionsRedux.cs)（MIT） |
+
+分離力の設定はKSPの公開フィールド`ModuleDecouplerBase.ejectionForcePercent`を使用します。役割は保存と読み込みを目的に公開されている`Part.customPartData`へ名前付き項目を追加します。これらも本番のコンパイル時参照と通常の公開アクセスであり、非公開reflectionは使用しません。[Part公開メンバー一覧](https://kspmoddinglibs.github.io/KSPDocsSite/class_part.html)、[ModuleDecouple公開メンバー一覧](https://kspmoddinglibs.github.io/KSPDocsSite/class_module_decouple.html)（コミュニティのAPI文書。公式な互換性保証を意味しません）。
 
 `PartLoader`、`Part.parent/children`、`AttachNode.attachedPart`、パーツの姿勢・接続ルール等へのアクセスも本番側の通常の公開メンバー呼び出しです。接続グラフ構築は自作実装で、KSPでの保存・再読み込みと実機試験で確認します。調査用ソース・試験コード・ログはGit管理外の`Development/`に保管し、本番ビルドには含めません。

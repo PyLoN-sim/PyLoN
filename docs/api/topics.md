@@ -36,6 +36,11 @@ Topicは、操作中の機体に属するものを`/ksp_vessel`、bridgeプロ�
 
 | 方向 | Topic | 型 | QoS / 内容 |
 |---|---|---|---|
+| Publish | `/ksp_vessel/simulator/state` | `SimulatorState` | Reliable / Transient Local。pause・warp・packed・通信とUT進行 |
+| Subscribe | `/ksp_vessel/control/batch` | `ControlBatch` | Reliable。更新→姿勢→推力→分離を順序付きで送信 |
+| Publish | `/ksp_vessel/control/snapshot` | `ControlSnapshot` | Reliable。同一frameの飛行・全エンジン・分離器。真値無効時は配信しない |
+| Publish | `/ksp_vessel/health/power` | `VehicleHealth` | 電力残量・容量・品質付き収支推定、2 Hz |
+| Publish | `/ksp_vessel/health/thermal` | `PartThermalState` | パーツ別温度・上限・遮蔽・電力、2 Hz |
 | Publish | `/ksp_vessel/lifecycle` | `VesselLifecycle` | Reliable / Transient Local。実機体IDとframe lifecycle |
 | Subscribe | `/ksp_vessel/control/authority/command` | `ControlAuthorityCommand` | Reliable。lease・SAS排他・e-stop |
 | Publish | `/ksp_vessel/control/authority/state` | `ControlAuthorityState` | Reliable / Transient Local。確定したowner |
@@ -83,6 +88,8 @@ LiDARとRGBカメラのIDはVAB/SPHの`Edit ROS2 Sensor ID`で設定します。
 | デカプラー／フェアリング | `/ksp_vessel/actuators/separation/command` | `/ksp_vessel/actuators/separation/state` | `SeparationCommand` / `SeparationState` |
 
 正式commandはauthority leaseと`vessel_id / controller_id / lease_id / sequence`が必要です。commandはReliable / Volatile / depth 10です。通常のstateはBest Effort / Volatile / depth 10、分離stateはReliable / Transient Local / depth 10です。
+
+分離結果は`/ksp_vessel/actuators/separation/result` (`SeparationResult`, Reliable / Transient Local)。再照会サービスは`/ksp_vessel/actuators/separation/get_result` (`GetSeparationResult`)です。保持期間・identity・snapshotの扱いは[機体制御API](vehicle-control.md)を参照してください。
 
 ## ドッキングポート
 

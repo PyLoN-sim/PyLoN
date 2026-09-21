@@ -38,6 +38,7 @@ class SessionTracker:
         self.available = False
         self.vessel_name = ""
         self.sample_time = None
+        self.observation_sequence = None
         self.revision = 0
         self.generation = uuid.uuid4().int & ((1 << 63) - 1)
 
@@ -51,6 +52,9 @@ class SessionTracker:
         if (isinstance(stamp, bool) or not isinstance(stamp, (int, float))
                 or not math.isfinite(stamp)):
             raise ValueError("invalid session sample time")
+        observation = packet.get("observationSequence")
+        if observation is not None and (type(observation) is not int or observation < 0):
+            raise ValueError("invalid session observation sequence")
         if packet.get("vesselId") != candidate.vessel:
             raise ValueError("session vessel identity mismatch")
         if candidate.instance in self.retired_instances:
@@ -64,6 +68,9 @@ class SessionTracker:
                         return False
                     if self.sample_time is not None and stamp < self.sample_time:
                         return False
+                    if self.observation_sequence is not None and (
+                            observation is None or observation <= self.observation_sequence):
+                        return False
             else:
                 self.retired_instances.add(self.key.instance)
         changed = candidate != self.key or packet["available"] != self.available
@@ -75,6 +82,7 @@ class SessionTracker:
         self.available = packet["available"]
         self.vessel_name = str(packet.get("vesselName", ""))
         self.sample_time = stamp
+        self.observation_sequence = observation
         return True
 
     def accepts(self, packet):

@@ -35,6 +35,16 @@ namespace PyLoN
                 foreach (double value in part.rotation) norm += value * value;
                 Require(Math.Abs(Math.Sqrt(norm) - 1) <= 0.001, "Rotation must be a unit quaternion: " + part.id);
                 Require(part.stage >= -1 && part.stage <= 99, "stage must be -1 to 99: " + part.id);
+                Require(part.autostrut == null || part.autostrut == "off" || part.autostrut == "root"
+                    || part.autostrut == "heaviest" || part.autostrut == "grandparent", "Invalid autostrut: " + part.id);
+                if (part.separation_force_percent.HasValue)
+                {
+                    double force = part.separation_force_percent.Value;
+                    Require(!double.IsNaN(force) && !double.IsInfinity(force) && force >= 0 && force <= 100,
+                        "separation_force_percent must be 0 to 100: " + part.id);
+                }
+                Require(part.role == null || Matches(part.role, "^[A-Za-z][A-Za-z0-9_-]{0,63}$"),
+                    "Invalid role: " + part.id);
                 if (string.IsNullOrEmpty(part.parent))
                 {
                     Require(root == null, "Expected exactly one root part.");
@@ -104,6 +114,11 @@ namespace PyLoN
         public string parent;
         public CraftAttachmentSpec attach;
         public int stage = -1;
+        // Null means preserve the installed part's default, including forced autostruts.
+        public string autostrut;
+        public bool? rigid_attachment;
+        public double? separation_force_percent;
+        public string role;
     }
 
     public sealed class CraftAttachmentSpec

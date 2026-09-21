@@ -59,6 +59,38 @@ class SpecTests(unittest.TestCase):
         child['attach'] = dict(mode='surface', node='srfAttach', parent_node='')
         self.assertEqual(builder.validate_spec(spec)['parts'][1], child)
 
+    def test_build_options_preserve_explicit_zero_and_false_without_changing_defaults(self):
+        spec = placement()
+        spec['parts'][1].update(autostrut='grandparent', rigid_attachment=False,
+                                separation_force_percent=0, role='satellite_separator')
+        before = copy.deepcopy(spec)
+        result = builder.validate_spec(spec)
+        self.assertEqual(result['parts'][1], before['parts'][1] | {'stage': -1})
+        self.assertEqual(spec, before)
+        for field in ('autostrut', 'rigid_attachment', 'separation_force_percent', 'role'):
+            self.assertNotIn(field, result['parts'][0])
+        for mode in ('off', 'root', 'heaviest', 'grandparent'):
+            spec['parts'][1].update(autostrut=mode, separation_force_percent=100,
+                                    rigid_attachment=True)
+            self.assertEqual(builder.validate_spec(spec)['parts'][1]['autostrut'], mode)
+
+    def test_build_options_reject_invalid_types_ranges_and_roles(self):
+        cases = {
+            'autostrut': ('Off', 'forced_root', '', None, True, [], {}),
+            'rigid_attachment': ('true', 0, 1, None, [], {}),
+            'separation_force_percent': (-0.001, 100.001, float('nan'), float('inf'),
+                                         True, '50', None, [], {}),
+            'role': ('', 'return engine', '0engine', 'engine\n', 'a' * 65,
+                     '帰還', True, None, [], {}),
+        }
+        for field, values in cases.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    spec = placement()
+                    spec['parts'][1][field] = value
+                    with self.assertRaises(builder.CraftBuilderError):
+                        builder.validate_spec(spec)
+
     def test_schema_types_unknown_fields_and_names(self):
         cases = [
             ((), None), ((), []), (('extra',), 1), (('version',), True),

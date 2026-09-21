@@ -11,7 +11,11 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from diagnostic_msgs.msg import DiagnosticArray
-from pylon_interfaces.msg import FlightState, FlightControlCommand
+from pylon_interfaces.msg import FlightState, FlightControlCommand, ControlBatch
+from .services.simulator import SimulatorService
+from .services.health import HealthService
+from .services.snapshot import SnapshotService
+from .services.separation_results import SeparationResultsService
 import rclpy
 from geometry_msgs.msg import AccelStamped, PoseStamped, TwistStamped, Vector3Stamped
 from pylon_interfaces.msg import BodyWrenchCommand, ControlAuthorityCommand, ControlAuthorityState, WrenchFeedback, VesselLifecycle, NearbyVessels
@@ -152,6 +156,11 @@ class PyLoNBridge(Node):
         self.ground_truth_enabled = not args.disable_ground_truth
         self.topic_prefix = "/" + args.topic_prefix.strip("/")
         self.bridge_prefix = "/" + args.bridge_prefix.strip("/")
+        self.simulator = SimulatorService(self)
+        self.health = HealthService(self)
+        self.snapshot = SnapshotService(self)
+        self.actuators_prefix = "/" + args.actuators_prefix.strip("/")
+        self.separation_results = SeparationResultsService(self)
         self.sensor_publishers: Dict[str, Any] = {}
         self.sensor_publisher_types: Dict[str, str] = {}
         self.sensor_last_seen: Dict[str, float] = {}
@@ -211,6 +220,10 @@ class PyLoNBridge(Node):
             "pylon_imu": self.sensors.publish_imu,
             "pylon_ground_truth": self.vehicle_state.publish_ground_truth,
             "pylon_flight_state": self.vehicle_state.publish_flight_state,
+            "pylon_vehicle_health": self.health.publish_power,
+            "pylon_part_thermal_state": self.health.publish_thermal,
+            "pylon_control_snapshot": self.snapshot.publish,
+            "pylon_separation_result": self.separation_results.publish_result,
             "pylon_nearby_vessels": self.vehicle_state.publish_nearby_vessels,
             "pylon_actuator_state": self.vehicle_state.publish_actuator_state,
             "pylon_actuator_manifest": self.vehicle_state.apply_actuator_manifest,
@@ -261,6 +274,10 @@ class PyLoNBridge(Node):
         truth_publisher = self.create_publisher if self.ground_truth_enabled else lambda *a: None
         self.flight_state_publisher = truth_publisher(
             FlightState, f"{ground_truth_prefix}/flight", state_qos
+        )
+        self.control_batch_subscription = self.create_subscription(
+            ControlBatch, f"{self.topic_prefix}/control/batch",
+            self.control.send_control_batch, command_qos
         )
         self.flight_control_subscription = self.create_subscription(
             FlightControlCommand, f"{self.topic_prefix}/control/flight_command",
@@ -324,6 +341,7 @@ class PyLoNBridge(Node):
         self.star_tracker.expire_star_trackers()
         self.runtime.camera_assembler.expire()
         self.flight.expire_session()
+        self.simulator.expire()
         self.sensors.remove_stale_publishers()
 
 

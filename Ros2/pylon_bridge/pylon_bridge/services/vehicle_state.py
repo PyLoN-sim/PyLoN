@@ -12,6 +12,7 @@ from ..vehicle_packets import actuator_names_to_remove, actuator_manifest_from_p
 from ..domain.time_alignment import extrapolate_pose
 from pylon_interfaces.msg import FlightState
 from ..flight_packets import flight_state_from_packet, VECTORS
+from .snapshot import fill_identity
 
 class VehicleStateService:
     """Vehicle state adapter composed by the PyLoN ROS node."""
@@ -58,6 +59,11 @@ class VehicleStateService:
             self.bridge.get_logger().warning(f'Dropped invalid flight state: {exc}')
             return
         message = FlightState()
+        try:
+            fill_identity(message, packet)
+        except ValueError as exc:
+            self.bridge.get_logger().warning(f'Dropped unidentified flight state: {exc}')
+            return
         message.header.stamp = self.bridge.flight.stamp_for_universal_time(values['universal_time'])
         message.header.frame_id = 'base_link'
         for field, value in values.items():
@@ -277,6 +283,14 @@ class VehicleStateService:
                 self.bridge.latched_separations.add(name)
         else:
             return
+        if kind in ('engine', 'separation'):
+            try:
+                fill_identity(message, packet)
+            except ValueError as exc:
+                self.bridge.get_logger().warning(f'Dropped unidentified actuator state: {exc}')
+                return
+            message.universal_time = float(packet['universalTime'])
+            message.role = str(packet.get('role', ''))
         publisher.publish(message)
 
     def apply_actuator_manifest(self, packet: Dict[str, Any]) -> None:
@@ -297,13 +311,6 @@ class VehicleStateService:
             self.bridge.latched_separations,
             vessel_changed,
         ):
-            if not vessel_changed and self.bridge.actuator_kinds.get(name) == "separation":
-                # KSP removes a decoupler/fairing from the active vessel in the
-                # same physics transition that completes separation.  The
-                # module can therefore disappear before its final state packet
-                # is emitted.  Manifest removal is authoritative completion.
-                self.publish_terminal_separation(name)
-                continue
             self.remove_actuator(
                 name,
                 "active vessel changed" if vessel_changed else "not in active-vessel manifest",

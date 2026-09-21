@@ -471,7 +471,7 @@ namespace PyLoN
                 string rejectionReason;
                 if (!PyLoNVehicleManager.TryAcceptExclusiveCommand(
                     command.vesselId, command.controllerId, command.leaseId,
-                    command.sequence, out rejectionReason))
+                    command.sequence, "motor:" + PyLoNMotorNames.Sanitize(command.name, "motor"), out rejectionReason))
                 {
                     return;
                 }

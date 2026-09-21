@@ -19,6 +19,7 @@ namespace PyLoN
                 var info = PartLoader.getPartInfoByName(item.part);
                 if (info == null || info.partPrefab == null)
                     throw new ArgumentException("Part is not installed: " + item.part + " (" + item.id + ")");
+                ValidateOptions(info.partPrefab, item);
                 available.Add(item.id, info);
             }
             // Validate all attachment points on the prefabs before instantiating anything.
@@ -61,6 +62,7 @@ namespace PyLoN
                     part.children.Clear();
                     part.symmetryCounterparts.Clear();
                     part.inverseStage = item.stage;
+                    ApplyOptions(part, item);
                     part.transform.position = Position(item.position);
                     part.transform.rotation = Rotation(item.rotation);
                 }
@@ -149,6 +151,7 @@ namespace PyLoN
                     throw new InvalidOperationException("Part identity changed during KSP reload: " + expected.id);
                 if (part.inverseStage != expected.stage)
                     throw new InvalidOperationException("Stage changed during KSP reload: " + expected.id);
+                VerifyOptions(part, expected);
                 var position = Quaternion.Inverse(root.transform.rotation) * (part.transform.position - root.transform.position);
                 var rotation = Quaternion.Inverse(root.transform.rotation) * part.transform.rotation;
                 if (Vector3.Distance(position, Position(expected.position)) > 0.0005f
@@ -219,9 +222,62 @@ namespace PyLoN
                 part = part.partInfo == null ? part.name : part.partInfo.name,
                 title = part.partInfo == null ? part.name : part.partInfo.title,
                 stage = part.inverseStage, nodes = nodes.ToArray(),
+                autostrut = part.autoStrutMode.ToString().ToLowerInvariant(),
+                rigid_attachment = part.rigidAttachment,
+                separation_force_percent = SeparationForce(part), role = PartRole.Resolve(part),
                 surfaceAttach = part.attachRules.srfAttach, allowSurfaceAttach = part.attachRules.allowSrfAttach,
                 stackAttach = part.attachRules.stack, allowStack = part.attachRules.allowStack
             };
+        }
+
+        private static Part.AutoStrutMode AutoStrut(string mode)
+        {
+            switch (mode)
+            {
+                case "off": return Part.AutoStrutMode.Off;
+                case "root": return Part.AutoStrutMode.Root;
+                case "heaviest": return Part.AutoStrutMode.Heaviest;
+                case "grandparent": return Part.AutoStrutMode.Grandparent;
+                default: throw new ArgumentException("Invalid autostrut mode.");
+            }
+        }
+
+        private static void ValidateOptions(Part part, CraftPartSpec spec)
+        {
+            // A landing leg's forced strut is a stock constraint, not an editable default.
+            if (spec.autostrut != null && part.autoStrutMode.ToString().StartsWith("Force", StringComparison.Ordinal))
+                throw new ArgumentException("Cannot override a forced autostrut: " + spec.id);
+            if (spec.separation_force_percent.HasValue && part.FindModulesImplementing<ModuleDecouplerBase>().Count != 1)
+                throw new ArgumentException("separation_force_percent requires exactly one stock decoupler module: " + spec.id);
+        }
+
+        private static void ApplyOptions(Part part, CraftPartSpec spec)
+        {
+            if (spec.autostrut != null) part.autoStrutMode = AutoStrut(spec.autostrut);
+            if (spec.rigid_attachment.HasValue) part.rigidAttachment = spec.rigid_attachment.Value;
+            if (spec.separation_force_percent.HasValue)
+                part.FindModuleImplementing<ModuleDecouplerBase>().ejectionForcePercent = (float)spec.separation_force_percent.Value;
+            if (spec.role != null) PartRole.Assign(part, spec.role);
+        }
+
+        private static double? SeparationForce(Part part)
+        {
+            var modules = part.FindModulesImplementing<ModuleDecouplerBase>();
+            return modules.Count == 1 ? (double?)modules[0].ejectionForcePercent : null;
+        }
+
+        private static void VerifyOptions(Part part, CraftPartSpec spec)
+        {
+            if (spec.autostrut != null && part.autoStrutMode != AutoStrut(spec.autostrut)
+                || spec.rigid_attachment.HasValue && part.rigidAttachment != spec.rigid_attachment.Value
+                || spec.role != null && PartRole.Resolve(part) != spec.role)
+                throw new InvalidOperationException("Part options changed during KSP reload: " + spec.id);
+            if (spec.separation_force_percent.HasValue)
+            {
+                var force = SeparationForce(part);
+                if (!force.HasValue || Math.Abs(force.Value - spec.separation_force_percent.Value) > 0.0001)
+                    throw new InvalidOperationException("Separation force changed during KSP reload: " + spec.id);
+            }
         }
 
         private static CraftNodeReport NodeReport(AttachNode node)

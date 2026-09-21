@@ -214,7 +214,7 @@ namespace PyLoN
             }
             string rejection;
             if (!PyLoNVehicleManager.TryAcceptExclusiveCommand(command.vesselId,
-                command.controllerId, command.leaseId, command.sequence, out rejection)) return;
+                command.controllerId, command.leaseId, command.sequence, "docking:" + PyLoNMotorNames.Sanitize(command.name, "docking_port"), out rejection)) return;
             var name = PyLoNMotorNames.Sanitize(command.name, "docking_port");
             var entry = FindPort(name);
             if (entry == null)

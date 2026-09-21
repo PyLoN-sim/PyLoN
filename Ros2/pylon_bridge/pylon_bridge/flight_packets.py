@@ -46,6 +46,21 @@ def flight_state_from_packet(packet):
         state[field] = packet[field]
     if state['mass'] <= 0 or state['gravity'] <= 0 or state['body_radius'] <= 0:
         raise ValueError('invalid physical flight state')
+    if 'appliedInputValid' in packet:
+        for field, key in [('applied_input_valid', 'appliedInputValid'),
+                           ('flight_command_active', 'flightCommandActive'), ('input_at_limit', 'inputAtLimit')]:
+            if type(packet.get(key)) is not bool:
+                raise ValueError(f'{key} must be boolean')
+            state[field] = packet[key]
+        for field, key in [('applied_pitch', 'appliedPitch'), ('applied_yaw', 'appliedYaw'),
+                           ('applied_roll', 'appliedRoll'), ('applied_input_age', 'appliedInputAge')]:
+            state[field] = finite(packet.get(key))
+        sequence = packet.get('appliedInputSequence')
+        if type(sequence) is not int or not 0 <= sequence < 2**63:
+            raise ValueError('invalid applied input sequence')
+        if state['applied_input_age'] < 0 or any(abs(state[k]) > 1 for k in ('applied_pitch', 'applied_yaw', 'applied_roll')):
+            raise ValueError('invalid applied input feedback')
+        state['applied_input_sequence'] = sequence
     return state
 
 

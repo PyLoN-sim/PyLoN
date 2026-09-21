@@ -51,6 +51,7 @@ namespace PyLoN
         public double gimbalRoll;
         public double thrustLimit;
         public bool separate;
+        public string operationId, operationInstance, operationEpoch, operationVesselId;
     }
 
     [Serializable]
@@ -185,6 +186,7 @@ namespace PyLoN
             string controllerId,
             string leaseId,
             long sequence,
+            string stream,
             out string reason)
         {
             if (instance == null || instance.control == null || !instance.TargetsActiveVessel(vesselId))
@@ -193,7 +195,7 @@ namespace PyLoN
                 return false;
             }
             return instance.control.Authority.AcceptCommand(
-                controllerId, leaseId, Time.realtimeSinceStartup, sequence, out reason);
+                controllerId, leaseId, Time.realtimeSinceStartup, sequence, stream, out reason);
         }
         private readonly Dictionary<string, WheelOverride> wheelOverrides = new Dictionary<string, WheelOverride>();
         private readonly Dictionary<string, EngineOverride> engineOverrides = new Dictionary<string, EngineOverride>();
@@ -234,7 +236,6 @@ namespace PyLoN
 
         private void OnRuntimeSessionChanged()
         {
-            if (actuatorTelemetry != null) actuatorTelemetry.ClearSeparationReceipt();
             if (control == null) return;
             StopAllVehicleControl();
             control.Authority.ReleaseForLifecycleChange("runtime_session_changed");
@@ -263,6 +264,7 @@ namespace PyLoN
         {
             AttachToActiveVessel();
             ExpireCommands();
+            PollSeparationOperations();
             if (wrenchFeedbackPending)
             {
                 wrenchFeedbackPending = false;
@@ -294,12 +296,16 @@ namespace PyLoN
                 nextManifestTime = Time.realtimeSinceStartup + 1f;
             }
             telemetry.SendGroundTruth();
+            BeginControlSnapshot();
             SendFlightState();
             actuatorTelemetry.PublishStates();
+            EndControlSnapshot();
+            SendVehicleHealth();
         }
 
         public void OnDestroy()
         {
+            CancelPendingSeparationOperations();
             RuntimeSession.Changed -= OnRuntimeSessionChanged;
             DetachFromVessel();
             if (stateClient != null)
@@ -319,6 +325,8 @@ namespace PyLoN
             if (envelope == null ||
                 (envelope.type != "pylon_body_wrench_command" &&
                  envelope.type != "pylon_flight_control_command" &&
+                 envelope.type != "pylon_control_batch" &&
+                 envelope.type != "pylon_separation_query" &&
                  envelope.type != "pylon_actuator_command" &&
                  envelope.type != "pylon_control_authority_command"))
             {
@@ -330,7 +338,22 @@ namespace PyLoN
             }
             try
             {
-                if (envelope.type == "pylon_control_authority_command" && envelope.version == ControlProtocolVersion)
+                if (envelope.type == "pylon_separation_query")
+                {
+                    instance.QuerySeparationOperation(JsonUtility.FromJson<PyLoNSeparationQuery>(json));
+                }
+                else if (envelope.type == "pylon_control_batch")
+                {
+                    var batch = JsonUtility.FromJson<PyLoNControlBatch>(json);
+                    if (batch == null || batch.engineJson == null || batch.engineJson.Length > 16) return true;
+                    // Decode every member before validating or applying any operation.
+                    batch.engines = Array.ConvertAll(batch.engineJson,
+                        value => JsonUtility.FromJson<PyLoNActuatorCommand>(value));
+                    if (batch.hasFlight) batch.flight = JsonUtility.FromJson<PyLoNFlightControlCommand>(batch.flightJson);
+                    if (batch.hasSeparation) batch.separation = JsonUtility.FromJson<PyLoNActuatorCommand>(batch.separationJson);
+                    instance.ApplyControlBatch(batch);
+                }
+                else if (envelope.type == "pylon_control_authority_command" && envelope.version == ControlProtocolVersion)
                 {
                     instance.ApplyControlAuthority(JsonUtility.FromJson<PyLoNControlAuthorityCommand>(json));
                 }
@@ -574,14 +597,19 @@ namespace PyLoN
             {
                 return;
             }
+            if (string.Equals((command.actuatorType ?? "").Trim(), "separation", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplySeparationOperation(command);
+                return;
+            }
             if (!TargetsActiveVessel(command.vesselId))
             {
                 return;
             }
             var rejectionReason = "control_unavailable";
-            if (control == null || !control.Authority.AcceptCommand(
-                command.controllerId, command.leaseId, Time.realtimeSinceStartup,
-                command.sequence, out rejectionReason))
+            if (control == null || !AcceptVehicleCommand(
+                command.controllerId, command.leaseId,
+                command.sequence, "actuator:" + (command.actuatorType ?? "").Trim().ToLowerInvariant() + ":" + PyLoNMotorNames.Sanitize(command.name, "actuator"), out rejectionReason))
             {
                 SendControlAuthorityState(rejectionReason);
                 return;
@@ -636,48 +664,6 @@ namespace PyLoN
                         ExpiresAt = expiresAt
                     };
                     break;
-                case "separation":
-                    ApplySeparationCommand(name, command.separate);
-                    break;
-            }
-        }
-
-        private void ApplySeparationCommand(string name, bool separate)
-        {
-            if (!separate)
-            {
-                return;
-            }
-            foreach (var module in parts.Separations())
-            {
-                var mechanism = VesselParts.SeparationMechanism(module);
-                var targetName = PyLoNActuatorNames.For(
-                    mechanism, module.part, PyLoNActuatorNames.ModuleIndex(module.part, module));
-                if (targetName != name || !VesselParts.SeparationAvailable(module))
-                {
-                    continue;
-                }
-                actuatorTelemetry.PublishSeparation(module);
-                var decoupler = module as ModuleDecouplerBase;
-                if (decoupler != null)
-                {
-                    decoupler.Decouple();
-                }
-                else
-                {
-                    var clamp = module as LaunchClamp;
-                    if (clamp != null) clamp.Release();
-                    var fairing = module as ModuleProceduralFairing;
-                    if (fairing != null)
-                    {
-                        fairing.DeployFairing();
-                    }
-                }
-                actuatorTelemetry.PublishSeparation(module);
-                actuatorTelemetry.RetainSeparationReceipt(module);
-                nextManifestTime = 0f;
-            if (actuatorTelemetry != null) actuatorTelemetry.Reset();
-                return;
             }
         }
 
@@ -857,6 +843,7 @@ namespace PyLoN
                     state.pitch = (float)flightInput.pitch;
                     state.yaw = (float)flightInput.yaw;
                     state.roll = (float)flightInput.roll;
+                    RecordAppliedFlight(state);
                 }
                 else flightInput = null;
             }
@@ -1464,6 +1451,7 @@ namespace PyLoN
 
         private void StopAllVehicleControl()
         {
+            appliedFlightValid = false;
             flightInput = null;
             wrenchActive = false;
             requestedForce = Vector3.zero;
@@ -1658,6 +1646,7 @@ namespace PyLoN
 
         private void Send(string json)
         {
+            CaptureControlSnapshot(json);
             if (stateClient == null || stateEndpoint == null) return;
             try
             {

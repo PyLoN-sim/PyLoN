@@ -39,3 +39,19 @@ class SessionTests(unittest.TestCase):
         first.observe(packet(),1);second.observe(packet(),1)
         self.assertEqual(first.key,second.key)
         self.assertNotEqual(first.generation,second.generation)
+
+    def test_paused_out_of_order_observations_do_not_refresh_session(self):
+        tracker = SessionTracker()
+        tracker.observe(packet(observationSequence=20), 1.)
+        for candidate in [packet(observationSequence=19), packet(observationSequence=20), packet()]:
+            self.assertFalse(tracker.observe(candidate, 2.))
+        self.assertEqual(tracker.last_seen, 1.)
+        self.assertTrue(tracker.observe(packet(observationSequence=21), 3.))
+        self.assertEqual(tracker.last_seen, 3.)
+        # A reload/new epoch is allowed to restart its observation counter.
+        self.assertTrue(tracker.observe(packet(2, observationSequence=1), 4.))
+
+    def test_invalid_observation_counter_is_rejected(self):
+        for counter in (True, -1, '3', 1.5):
+            with self.assertRaises(ValueError):
+                SessionTracker().observe(packet(observationSequence=counter), 1.)

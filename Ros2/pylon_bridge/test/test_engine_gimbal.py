@@ -70,6 +70,8 @@ class EngineGimbalTests(unittest.TestCase):
         self.assertTrue(sent[0]['hasGimbalCommand'])
         fake.vehicle_state.publish_actuator_state( dict(
             type='pylon_actuator_state', version=1, actuatorType='engine', name='engine_123_0',
+            runtimeInstance='runtime', runtimeEpoch='epoch', runtimeGeneration=1,
+            runtimeVesselId='vessel', vesselId='vessel', observationSequence=12, universalTime=10.,
             gimbalAvailable=True, gimbalCommandActive=True, gimbalPitch=.1, gimbalYaw=-.2, gimbalRoll=.3))
         self.assertEqual(len(states), 1)
         self.assertTrue(states[0].gimbal_available)

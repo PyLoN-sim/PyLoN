@@ -10,7 +10,7 @@
 4. leaseと同じidentityを持つ指令を、timeoutより短い周期で送る。
 5. 制御終了時に`ACTION_RELEASE`を送る。停止時に送れなくてもleaseは期限切れになる。
 
-`sequence`は同じ`controller_id + lease_id`の全正式指令を通じて単調増加させます。同じ値や古い値はKSPで拒否されます。`priority`が高い新規leaseだけが現在のownerをpreemptできます。同じpriorityでは先に取得したownerを維持します。
+`sequence`は正の符号付き64 bit整数です。同じ`controller_id + lease_id`内で、authority、姿勢（Flight/Wrench共通）、種類とIDで区別した各アクチュエータ、各motor、各docking portを独立に比較します。同じ経路内の重複・古い値は拒否しますが、別Topicの到着順が逆転してもheartbeatや他の対象を巻き込みません。既存の全指令共通カウンタも利用できます。`last_sequence`は最後に受理した経路の値であり、全経路の最大値ではありません。`priority`が高い新規leaseだけが現在のownerをpreemptできます。同じpriorityでは先に取得したownerを維持します。
 
 ## Topic
 
@@ -141,6 +141,54 @@ Body Wrench用の力・トルクフィルターとは別の、stock入力を使�
 
 この出力はシミュレータ真値です。地形高度は脚先からの距離ではないため、
 着陸制御では機体寸法・重心移動を考慮してください。利用例は[衛星分離・逆噴射着陸](../demos/reusable-launch.md)。
+
+## 順序付き飛行指令
+
+`/ksp_vessel/control/batch` (`ControlBatch`) は、1つのROSメッセージを1つのUDP datagramへ変換します。実行順序は **lease更新 → 姿勢 → engines配列順 → 分離1件** です。分離は機体世代を変え得るため必ず最後です。最大16エンジン、各入力のtimeoutは0.05〜1秒です。
+
+外側の`vessel_id / controller_id / lease_id / sequence`を内側の全指令に適用します。`has_flight / has_separation`がfalseの項目は実行しません。`renew_lease=true`で制御と同じtickにheartbeatを送れます。取得・解放・e-stopには引き続きauthority Topicを使用します。同じleaseではbatchと個別の操作Topicを混在させず、取得・batch・解放を通じて1つの増加カウンタを使ってください。
+
+UDPでは内側の指令を`flightJson / engineJson[] / separationJson`のJSON文字列として格納し、KSPが全件を明示的にデコード・検証してから実行します。ROS側のメッセージ構造は変わりません。
+
+KSPは古いbatch全体を拒否し、受理したbatchを1つのmain-thread callbackで順に処理します。UDPの再送・配送保証や、物理操作失敗時のrollbackを提供するものではありません。分離の完了は下記の結果APIで確認してください。
+
+## 分離結果と再照会
+
+`SeparationCommand`の`operation_id`には操作ごとに一意なIDを指定します。`original_runtime_instance / original_runtime_epoch / original_vessel_id`は初回に省略するとbridgeが現在のidentityを補います。再照会では初回の値をそのまま使います。
+
+結果Topicは`/ksp_vessel/actuators/separation/result` (`SeparationResult`, Reliable / Transient Local, depth 128) です。`completed && success && retained`で完了を確認します。旧epoch・generation、新epoch・generation、現在の機体ID、元のパーツ群から観測した分離後の機体ID一覧を含みます。機体manifestからパーツが消えただけでは成功にしません。
+
+KSPは完了結果をプロセス内で10分間、最大128件保持します。満杯の場合は新しい分離を拒否し、保存済み結果を追い出しません。同じ操作ID・元identityの再受信は保持中の結果を返し、再実行しません。別の対象・controllerへのID使い回しは拒否します。結果は現在の通信epochで再送するため、分離でepochが変わっても取得できます。プロセス再起動で保持内容は失われます。
+
+再照会は`/ksp_vessel/actuators/separation/get_result` (`GetSeparationResult`)。初回の操作identityを渡します。bridgeに結果があれば`found=true`、なければ読み取り専用問い合わせをKSPへ送り`query_sent=true`を返します。結果Topicの更新後に再照会してください。未完了のcacheがある場合も再問い合わせします。新たなleaseは再照会には不要ですが、KSPへの通信には現在のunpackedセッションが必要です。cache済み結果はpacked時も照会できます。`result_not_retained`は未実行の証明ではありません。
+
+## シミュレータ状態と一貫した観測
+
+`/ksp_vessel/simulator/state` (`SimulatorState`) は10 Hzの実時間heartbeatから生成します。pause、warp倍率、physics warp、packed、操作可能性、UT進行、最後にUTが進んでからの実時間を区別します。状態は`INITIALIZING / ADVANCING / PAUSED / STALLED / UNAVAILABLE / STALE`です。`STALLED`はheartbeatが届いているのにUTが0.5秒以上進まない状態、`STALE`はheartbeat欠測です。通信途絶だけからKSP停止とネットワーク断を区別することはできません。`communication_alive=false`の場合、pause等の値は最後の観測値です。
+
+`FlightState / EngineState / SeparationState`には共通の`vessel_id / runtime_instance / runtime_generation / runtime_epoch / observation_sequence`があります。観測番号はUnity frame番号で、epoch内だけで比較します。`/ksp_vessel/control/snapshot` (`ControlSnapshot`) は同じframe・UTの飛行状態、全エンジン、現在の全分離器を1つのメッセージで返します。部分欠測・異なるepoch/frame/UTの混合は拒否します。UDP上限に収まらない巨大なsnapshotは部分配信せず省略します。真値を含むため`--disable-ground-truth`ではsnapshotも配信しません。
+
+## 共通checkpointと再開検証
+
+`pylon_vehicle_control.application.checkpoint`の`MissionCheckpoint.capture`は、真空の無推力軌道で機体identity、構成ID、資源、質量、天体、軌道、未完了操作、旧leaseを記録します。`to_dict / from_dict`でJSON保存・復元でき、復元時にもschema・型・上限を検証します。
+
+`validate_resume`へ現在のsnapshot、SimulatorState、authority、最も古い受信時刻を渡すと、再開可否と理由を返します。新しい観測、同じ機体・epoch・構成・軌道、資源の許容差、ゼロ推力、未完了操作の解決、他owner不在を確認します。許可後は新しいleaseを取得し、取得結果も再検証してください。旧leaseの復元・再使用は拒否します。再使用デモの軌道HOLD復帰はこの共通処理を使用します。
+
+このAPIはKSPセーブの作成・ロードやwarp実行を行いません。quicksaveのロード・packed/unpackedなどでepochが変わった場合は再開を拒否します。別epochへの再対応付けと軌道セーブからの自動runnerは別途必要です。
+
+## 入力軸・適用結果・熱と電力
+
+正のbody軸入力とstock入力の対応は次の通りです。共通関数`pylon_vehicle_control.application.flight_axes.stock_inputs_for_body_axes`と軸ごとのテストで固定しています。応答の大きさは機体・速度・可動部の状態に依存します。
+
+| body軸の正方向 | stock入力 |
+|---|---|
+| +X回転 | roll + |
+| +Y回転 | pitch − |
+| +Z回転 | yaw − |
+
+`FlightState.applied_pitch / applied_yaw / applied_roll`はPyLoNが最後に`OnFlyByWire`へ書いた入力です。`applied_input_sequence / applied_input_age / applied_input_valid / flight_command_active`を併せて確認します。`input_at_limit`は正規化入力が上限に達していることを示し、実トルク飽和の測定ではありません。個別エンジンのジンバル入力は`EngineState`の既存フィールドを使います。舵面の実偏角・各装置の寄与トルクは未計測です。
+
+`/ksp_vessel/health/thermal` (`PartThermalState`) は各パーツの内部・表面温度と上限（K）、空力遮蔽、電力残量・容量を2 Hzで配信します。`/ksp_vessel/health/power` (`VehicleHealth`) は機体全体の電力残量・容量と、そのUT差分から求めた収支推定（EC/s）です。`net_charge_rate_valid`と推定区間を確認してください。epochや容量の変更直後・pause中は推定を無効にします。発電量と消費量を別々には復元できないため、両方のvalid flagはfalseです。電池が満杯でも発電ゼロとは限りません。
 
 ## 型付きアクチュエータの共通条件
 

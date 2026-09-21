@@ -120,7 +120,7 @@ stateDiagram-v2
 | `/reusable_mission/status` | 現在の段階、制御権、分離確認、高度・速度・燃料 |
 | `/diagnostics` | 正常状態またはabort理由を標準診断形式で通知 |
 
-KSP側の制御権leaseは1秒、指令の有効期間は0.3秒です。ROS側では通常0.6秒の入力欠測で停止します。lease更新・分離は専用の送信タイミングを使い、別Topicの操舵・推力指令との順序競合を避けます。無推力の安定周回中は後述の`HOLD`を使います。それ以外では、KSPをポーズしてシミュレーション時刻が2秒間進まない場合も停止するため、再開で突然噴射しません。time warpは使用しないでください。
+KSP側の制御権leaseは1秒、指令の有効期間は0.3秒です。ROS側では通常0.6秒の入力欠測で停止します。lease更新・姿勢・推力・分離は`ControlBatch`の単一経路で順に送信し、専用heartbeat tickは不要です。観測には同一frameの`ControlSnapshot`を使います。分離は`operation_id`に対応する保存済み結果と分離後の機体identityを照合し、失われた結果はサービスで再照会します。`SimulatorState`でpause、warp、通信欠測、UT停止を区別します。無推力の安定周回中は後述の`HOLD`、それ以外のpause・warpではabortして再点火を防ぎます。
 
 ## 停止・再試行
 
@@ -143,8 +143,8 @@ KSPで新しいPhoenixを発射台へ戻してから:
 
 ```bash
 ros2 bag record /reusable_mission/events /reusable_mission/status /diagnostics \
-  /ksp_vessel/lifecycle /ksp_vessel/ground_truth/flight \
-  /ksp_vessel/control/authority/state /ksp_vessel/actuators/separation/state
+  /ksp_vessel/lifecycle /ksp_vessel/control/snapshot /ksp_vessel/simulator/state \
+  /ksp_vessel/control/authority/state /ksp_vessel/actuators/separation/result
 ```
 
 ## 検証範囲
@@ -157,4 +157,6 @@ ros2 bag record /reusable_mission/events /reusable_mission/status /diagnostics \
 
 ### 無推力周回中の通信待機
 
-`DEORBIT_WAIT`で高度・近点とも70 km以上、動圧ゼロの場合に限り、テレメトリ途絶時は`HOLD`へ移ります。出力をゼロにして制御権を解放し、最大5秒だけ待機します。同じ飛行セッションで燃料・質量が変わらず、新鮮な状態が0.5秒継続したら新しいleaseで復帰します。他の操縦者による制御権取得、機体変更、状態変化、期限超過はabortします。燃焼中と大気圏内ではこの復帰処理を使いません。
+`DEORBIT_WAIT`で高度・近点とも70 km以上、動圧ゼロの場合に限り、テレメトリ途絶時は`HOLD`へ移ります。出力をゼロにして制御権を解放し、通信欠測は最大5秒、明示的なpauseは最大300秒待機します。pause中に通信が失われた場合も欠測の上限は5秒です。同じ飛行セッションで構成・資源・質量・軌道が許容範囲内にあり、ゼロ推力・未完了操作なし・新鮮な状態を共通checkpoint検証で確認し、0.5秒安定したら新しいleaseで復帰します。他の操縦者による制御権取得、機体変更、状態変化、期限超過はabortします。燃焼中と大気圏内ではこの復帰処理を使いません。
+
+今回のAPI移行後は自動テストで通信順序・pause復帰・結果再照会を確認しています。上記の実飛行記録は移行前のものです。新APIでの軌道帰還・warp・quicksaveロードからの再開は実飛行未検証で、epochをまたぐ自動再開は実装していません。

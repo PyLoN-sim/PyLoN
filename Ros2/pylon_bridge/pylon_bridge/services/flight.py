@@ -19,6 +19,7 @@ class FlightService:
             self.apply_session(event)
 
     def apply_session(self, event):
+        self.bridge.simulator.observe(event.packet)
         self.bridge.active_vessel_id = self.bridge.session.key.vessel
         self.bridge.active_vessel_name = self.bridge.session.vessel_name
         self.bridge.vessel_generation = self.bridge.session.generation

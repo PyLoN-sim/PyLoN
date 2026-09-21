@@ -19,6 +19,18 @@ namespace PyLoN
     {
         private PyLoNFlightControlCommand flightInput;
         private float flightInputExpires;
+        private float appliedFlightAt = -1;
+        private long appliedFlightSequence;
+        private Vector3 appliedFlightInputs;
+        private bool appliedFlightValid;
+
+        private void RecordAppliedFlight(FlightCtrlState state)
+        {
+            appliedFlightInputs = new Vector3(state.pitch, state.yaw, state.roll);
+            appliedFlightSequence = flightInput.sequence;
+            appliedFlightAt = Time.realtimeSinceStartup;
+            appliedFlightValid = true;
+        }
 
         private void ApplyFlightControl(PyLoNFlightControlCommand command)
         {
@@ -27,8 +39,8 @@ namespace PyLoN
                 !ValidGimbalAxis(command.roll) || !IsFinite(command.timeoutSeconds) ||
                 command.timeoutSeconds < 0.05 || command.timeoutSeconds > 1.0) return;
             string reason;
-            if (!control.Authority.AcceptCommand(command.controllerId, command.leaseId,
-                Time.realtimeSinceStartup, command.sequence, out reason)) return;
+            if (!AcceptVehicleCommand(command.controllerId, command.leaseId,
+                command.sequence, "attitude", out reason)) return;
             // Flight inputs and wrench allocation cannot own the same attitude axes.
             if (wrenchActive)
             {
@@ -59,6 +71,7 @@ namespace PyLoN
             AppendString(b, "type", "pylon_flight_state", true);
             AppendNumber(b, "version", 1);
             AppendString(b, "vesselId", ActiveVesselId());
+            AppendNumber(b, "observationSequence", Time.frameCount);
             AppendString(b, "bodyName", body.bodyName);
             AppendNumber(b, "universalTime", Planetarium.GetUniversalTime());
             AppendNumber(b, "altitudeAsl", vessel.altitude);
@@ -81,6 +94,16 @@ namespace PyLoN
             AppendNumber(b, "dynamicPressure", 0.5 * vessel.atmDensity * vessel.srf_velocity.sqrMagnitude);
             AppendBoolean(b, "landed", vessel.Landed);
             AppendBoolean(b, "splashed", vessel.Splashed);
+            AppendBoolean(b, "appliedInputValid", appliedFlightValid);
+            AppendBoolean(b, "flightCommandActive", flightInput != null && Time.realtimeSinceStartup <= flightInputExpires &&
+                control != null && control.Authority.Mode == PyLoN.Domain.Control.ControlAuthorityMode.Owned);
+            AppendNumber(b, "appliedInputSequence", appliedFlightSequence);
+            AppendNumber(b, "appliedInputAge", appliedFlightAt < 0 ? 0 : Time.realtimeSinceStartup - appliedFlightAt);
+            AppendNumber(b, "appliedPitch", appliedFlightInputs.x);
+            AppendNumber(b, "appliedYaw", appliedFlightInputs.y);
+            AppendNumber(b, "appliedRoll", appliedFlightInputs.z);
+            AppendBoolean(b, "inputAtLimit", appliedFlightValid && (Math.Abs(appliedFlightInputs.x) >= .999f ||
+                Math.Abs(appliedFlightInputs.y) >= .999f || Math.Abs(appliedFlightInputs.z) >= .999f));
             AppendVector(b, "upBody", WorldVectorToBody(vessel.upAxis));
             AppendVector(b, "eastBody", WorldVectorToBody(vessel.east));
             AppendVector(b, "northBody", WorldVectorToBody(vessel.north));

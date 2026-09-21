@@ -1,4 +1,11 @@
 std_msgs/Header header
+string runtime_instance
+uint64 runtime_generation
+string runtime_epoch
+uint64 observation_sequence
+string vessel_id
+float64 universal_time
+string role
 string id
 string name
 bool enabled

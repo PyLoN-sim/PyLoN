@@ -21,6 +21,11 @@ PyLoNのUDP JSONを受け取り、LiDAR、RGBカメラ、ロボティクスモ�
 - Motor state: `/ksp_vessel/joint_states` (`sensor_msgs/msg/JointState`)
 - Motor diagnostics/current estimate: `/pylon/diagnostics` (`diagnostic_msgs/msg/DiagnosticArray`)
 - Typed actuators: `/ksp_vessel/actuators/<type>/{command,state}`（commandの`id`で対象指定）
+- Ordered flight commands: `/ksp_vessel/control/batch` (`ControlBatch`)
+- Coherent control observation: `/ksp_vessel/control/snapshot` (`ControlSnapshot`, truth-dependent)
+- Simulator heartbeat state: `/ksp_vessel/simulator/state` (`SimulatorState`)
+- Retained separation results: `/ksp_vessel/actuators/separation/result` + `get_result` service
+- Part thermals / electrical storage: `/ksp_vessel/health/{thermal,power}`
 - Control authority: `/ksp_vessel/control/authority/{command,state}`
 - Body wrench: `/ksp_vessel/control/wrench_command` (`BodyWrenchCommand`、`base_link`)
 - Wrench feedback: `/ksp_vessel/control/wrench_feedback` (`WrenchFeedback`)

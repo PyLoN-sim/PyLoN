@@ -206,6 +206,10 @@ namespace PyLoN
         public bool allowSurfaceAttach;
         public bool stackAttach;
         public bool allowStack;
+        public string autostrut;
+        public bool rigid_attachment;
+        public double? separation_force_percent;
+        public string role;
     }
 
     internal sealed class CraftNodeReport

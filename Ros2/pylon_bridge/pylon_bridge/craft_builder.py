@@ -122,7 +122,8 @@ def validate_spec(spec):
     for index, part in enumerate(spec['parts']):
         label = f'parts[{index}]'
         _fields(part, ('id', 'part', 'position', 'rotation'),
-                ('parent', 'attach', 'stage'), label)
+                ('parent', 'attach', 'stage', 'autostrut', 'rigid_attachment',
+                 'separation_force_percent', 'role'), label)
         _token(part['id'], ID_PATTERN, f'{label}.id')
         _token(part['part'], PART_PATTERN, f'{label}.part')
         if part['id'] in by_id:
@@ -139,6 +140,22 @@ def validate_spec(spec):
             _fail(f'{label}.stage must be an integer in -1..99')
         normalized = dict(id=part['id'], part=part['part'], position=position,
                           rotation=rotation, parent=parent, stage=stage)
+        if 'autostrut' in part:
+            if part['autostrut'] not in ('off', 'root', 'heaviest', 'grandparent'):
+                _fail(f'{label}.autostrut must be off, root, heaviest or grandparent')
+            normalized['autostrut'] = part['autostrut']
+        if 'rigid_attachment' in part:
+            if type(part['rigid_attachment']) is not bool:
+                _fail(f'{label}.rigid_attachment must be a boolean')
+            normalized['rigid_attachment'] = part['rigid_attachment']
+        if 'separation_force_percent' in part:
+            force = part['separation_force_percent']
+            if not _finite_number(force) or not 0 <= force <= 100:
+                _fail(f'{label}.separation_force_percent must be a finite number in 0..100')
+            normalized['separation_force_percent'] = force
+        if 'role' in part:
+            _token(part['role'], ID_PATTERN, f'{label}.role')
+            normalized['role'] = part['role']
         if parent == '':
             if 'attach' in part:
                 _fail(f'{label}: root attach must be omitted')

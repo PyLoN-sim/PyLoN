@@ -6,6 +6,8 @@ from ..packet_conversion import sanitize_ros_name
 from ..vehicle_packets import actuator_command, body_wrench_command, control_authority_command
 from ..domain.control import authority_state_from_packet, wrench_feedback_from_packet
 from ..flight_packets import flight_control_command
+from ..control_batch import control_batch_command
+from ..separation_packets import separation_operation_fields
 
 class ControlService:
     """Control adapter composed by the PyLoN ROS node."""
@@ -85,6 +87,12 @@ class ControlService:
         except (OSError, ValueError) as exc:
             self.bridge.get_logger().warning(f"{label} UDP send failed: {exc}")
 
+    def send_control_batch(self, message) -> None:
+        try:
+            self.send_vehicle_packet(control_batch_command(message, self.bridge.session.key), 'control batch')
+        except ValueError as exc:
+            self.bridge.get_logger().warning(f'Dropped invalid control batch: {exc}')
+
     def send_flight_control(self, message) -> None:
         try:
             self.send_vehicle_packet(flight_control_command(message), 'flight control')
@@ -142,6 +150,11 @@ class ControlService:
                 self.bridge.get_logger().warning(
                     f"Dropped invalid separation command for {name}: {exc}"
                 )
+                return
+            try:
+                command.update(separation_operation_fields(message, self.bridge.session.key))
+            except ValueError as exc:
+                self.bridge.get_logger().warning(f'Dropped invalid separation identity: {exc}')
                 return
             self.send_vehicle_packet(command, "separation command")
             return

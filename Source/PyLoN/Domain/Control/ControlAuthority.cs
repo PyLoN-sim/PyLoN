@@ -58,7 +58,7 @@ namespace PyLoN.Domain.Control
                 reason = "authority_held_by_higher_or_equal_priority";
                 return false;
             }
-            if (!TryAdvanceSequence(controllerId, leaseId, sequence, out reason))
+            if (!TryAdvanceSequence(controllerId, leaseId, sequence, "authority", out reason))
             {
                 return false;
             }
@@ -95,7 +95,7 @@ namespace PyLoN.Domain.Control
                 reason = "invalid_lease";
                 return false;
             }
-            if (!TryAdvanceSequence(controllerId, leaseId, sequence, out reason))
+            if (!TryAdvanceSequence(controllerId, leaseId, sequence, "authority", out reason))
             {
                 return false;
             }
@@ -107,6 +107,20 @@ namespace PyLoN.Domain.Control
             return true;
         }
 
+        // Called only after an ordered batch has passed AcceptCommand. The batch
+        // gate already rejects repeats; do not compare its counter to authority.
+        public bool RenewAcceptedCommand(string controllerId, string leaseId, double now,
+            double duration, bool suppressSas)
+        {
+            Expire(now);
+            if (!Owns(controllerId, leaseId) || !Finite(duration) || duration < .1 || duration > 10)
+                return false;
+            ExpiresAt = now + duration;
+            SuppressSas = suppressSas;
+            Reason = "lease_renewed";
+            return true;
+        }
+
         public bool Release(string controllerId, string leaseId, long sequence, out string reason)
         {
             if (!Owns(controllerId, leaseId))
@@ -114,7 +128,7 @@ namespace PyLoN.Domain.Control
                 reason = "lease_not_owned";
                 return false;
             }
-            if (!TryAdvanceSequence(controllerId, leaseId, sequence, out reason))
+            if (!TryAdvanceSequence(controllerId, leaseId, sequence, "authority", out reason))
             {
                 return false;
             }
@@ -130,6 +144,14 @@ namespace PyLoN.Domain.Control
             long sequence,
             out string reason)
         {
+            return AcceptCommand(controllerId, leaseId, now, sequence, "command", out reason);
+        }
+
+        // Independent DDS topics cannot provide a shared total order. Reject
+        // duplicates within an operation stream without starving other streams.
+        public bool AcceptCommand(string controllerId, string leaseId, double now,
+            long sequence, string stream, out string reason)
+        {
             Expire(now);
             if (Mode == ControlAuthorityMode.EmergencyStop)
             {
@@ -141,7 +163,7 @@ namespace PyLoN.Domain.Control
                 reason = "lease_not_owned";
                 return false;
             }
-            if (!TryAdvanceSequence(controllerId, leaseId, sequence, out reason))
+            if (!TryAdvanceSequence(controllerId, leaseId, sequence, stream, out reason))
             {
                 return false;
             }
@@ -162,7 +184,7 @@ namespace PyLoN.Domain.Control
                 reason = "invalid_lease";
                 return false;
             }
-            if (!TryAdvanceSequence(controllerId, leaseId, sequence, out reason))
+            if (!TryAdvanceSequence(controllerId, leaseId, sequence, "authority", out reason))
             {
                 return false;
             }
@@ -194,7 +216,7 @@ namespace PyLoN.Domain.Control
                 reason = "emergency_stop_owner_mismatch";
                 return false;
             }
-            if (!TryAdvanceSequence(controllerId, leaseId, sequence, out reason))
+            if (!TryAdvanceSequence(controllerId, leaseId, sequence, "authority", out reason))
             {
                 return false;
             }
@@ -244,9 +266,10 @@ namespace PyLoN.Domain.Control
             string controllerId,
             string leaseId,
             long sequence,
+            string stream,
             out string reason)
         {
-            var key = controllerId + "\n" + leaseId;
+            var key = controllerId + "\n" + leaseId + "\n" + stream;
             long previous;
             if (sequence <= 0 ||
                 (sequenceByLease.TryGetValue(key, out previous) && sequence <= previous))
