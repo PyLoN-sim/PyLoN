@@ -75,3 +75,19 @@ MOD、ROS2 bridge、メッセージ定義、ドキュメントへの変更は[�
 ## ライセンス
 
 [MIT License](LICENSE)。配布物には著作権表示とライセンス本文を同梱します。
+
+## Docker / ROS 2 Jazzy
+
+`Docker/jazzy/Dockerfile` builds `pylon_interfaces`, `pylon_bridge`, and
+`pylon_vehicle_control` on the official Jazzy ROS base image. KSP and the PyLoN
+mod run on the Linux host; the runtime image contains the ROS packages.
+
+```bash
+docker build -f Docker/jazzy/Dockerfile --target runtime -t pylon-bridge:jazzy .
+docker run --rm -it --init --network host --name pylon-jazzy pylon-bridge:jazzy
+```
+
+After the first GHCR publication and Public package setup, replace the local
+image with `ghcr.io/pylon-sim/pylon-bridge:jazzy`. See
+[container publishing](RELEASING.md#ros-2-jazzyコンテナの配布ghcr) and
+[Getting Started](https://github.com/PyLoN-sim/docs/blob/main/guide/getting-started.md).

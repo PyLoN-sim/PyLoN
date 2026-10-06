@@ -12,6 +12,10 @@
 !Docker/spaceros/
 !Docker/spaceros/Dockerfile
 !Docker/spaceros/entrypoint.sh
+!Docker/jazzy/
+!Docker/jazzy/Dockerfile
+!Docker/jazzy/entrypoint.sh
+!Docker/jazzy/compose.yaml
 **/__pycache__
 **/*.pyc
 **/.pytest_cache
