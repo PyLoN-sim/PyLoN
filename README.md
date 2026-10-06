@@ -27,13 +27,15 @@ cd PyLoN
 
 ## 導入
 
-[Getting Started](https://github.com/PyLoN-sim/docs/blob/main/guide/getting-started.md)で、Ubuntu 24.04とROS2 Jazzyの準備、MODとROS2パッケージのインストール、bridgeの起動、機体情報と3D LiDARの受信まで説明しています。
+[Getting Started](https://github.com/PyLoN-sim/docs/blob/main/guide/getting-started.md)で、Ubuntu 24.04とDockerの準備、MODのインストール、Docker内のJazzy bridgeの起動、機体情報と3D LiDARの受信まで説明しています。
 
 導入後は[ROS2アプリケーションを作る](https://github.com/PyLoN-sim/docs/blob/main/guide/application-development.md)へ進んでください。[システム概要](https://github.com/PyLoN-sim/docs/blob/main/guide/overview.md)では通信経路、Topicの寿命、IDと座標系を確認できます。
 
+Dockerの構成・ローカルビルド・Composeでの起動は[Dockerの構成・運用](https://github.com/PyLoN-sim/docs/blob/main/guide/docker.md)を参照してください。Dockerfileは`Docker/jazzy/`、GHCRの初回公開手順は[RELEASING.md](RELEASING.md)にあります。
+
 Space ROSを使用する場合は[Space ROSで動かす](https://github.com/PyLoN-sim/docs/blob/main/guide/space-ros.md)を参照してください。公式イメージ内でPyLoNをビルドし、ホストのKSPと接続できます。
 
-配布版MODは[Releases](https://github.com/PyLoN-sim/PyLoN/releases)の`PyLoN-vX.Y.Z.zip`を展開し、`GameData/PyLoN`をKSPの`GameData`へコピーします。更新前にインストール先の`Config/Runtime.cfg`を控えてください。「Source code」アーカイブにはビルド済みMODは含まれません。ROS2パッケージはソースからビルドします。
+配布版MODは[Releases](https://github.com/PyLoN-sim/PyLoN/releases)の`PyLoN-vX.Y.Z.zip`を展開し、`GameData/PyLoN`をKSPの`GameData`へコピーします。更新前にインストール先の`Config/Runtime.cfg`を控えてください。「Source code」アーカイブにはビルド済みMODは含まれません。ROS2パッケージはGHCRのJazzyイメージを使うか、Dockerfileからビルドします。初回のイメージ公開とPackagesのPublic設定が完了するまではローカルビルドを使用してください。
 
 ## APIリファレンス
 
@@ -75,19 +77,3 @@ MOD、ROS2 bridge、メッセージ定義、ドキュメントへの変更は[�
 ## ライセンス
 
 [MIT License](LICENSE)。配布物には著作権表示とライセンス本文を同梱します。
-
-## Docker / ROS 2 Jazzy
-
-`Docker/jazzy/Dockerfile` builds `pylon_interfaces`, `pylon_bridge`, and
-`pylon_vehicle_control` on the official Jazzy ROS base image. KSP and the PyLoN
-mod run on the Linux host; the runtime image contains the ROS packages.
-
-```bash
-docker build -f Docker/jazzy/Dockerfile --target runtime -t pylon-bridge:jazzy .
-docker run --rm -it --init --network host --name pylon-jazzy pylon-bridge:jazzy
-```
-
-After the first GHCR publication and Public package setup, replace the local
-image with `ghcr.io/pylon-sim/pylon-bridge:jazzy`. See
-[container publishing](RELEASING.md#ros-2-jazzyコンテナの配布ghcr) and
-[Getting Started](https://github.com/PyLoN-sim/docs/blob/main/guide/getting-started.md).
