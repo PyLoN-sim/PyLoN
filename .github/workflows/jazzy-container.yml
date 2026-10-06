@@ -1,0 +1,107 @@
+name: Jazzy container
+
+on:
+  pull_request:
+    paths:
+      - 'Ros2/pylon_interfaces/**'
+      - 'Ros2/pylon_bridge/**'
+      - 'Ros2/pylon_vehicle_control/**'
+      - 'Docker/jazzy/**'
+      - '.dockerignore'
+      - '.github/workflows/jazzy-container.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Ros2/pylon_interfaces/**'
+      - 'Ros2/pylon_bridge/**'
+      - 'Ros2/pylon_vehicle_control/**'
+      - 'Docker/jazzy/**'
+      - '.dockerignore'
+      - '.github/workflows/jazzy-container.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build and test ROS packages
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Docker/jazzy/Dockerfile
+          target: test
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=pylon-jazzy
+          cache-to: type=gha,mode=max,scope=pylon-jazzy
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: pylon-jazzy-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Compute registry name
+        id: image
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: echo "name=ghcr.io/${OWNER,,}/pylon-bridge" >> "$GITHUB_OUTPUT"
+      - name: Container tags and source metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          flavor: latest=false
+          tags: |
+            type=sha,prefix=jazzy-sha-,format=long
+            type=raw,value=jazzy,enable=${{ github.event_name != 'release' || !github.event.release.prerelease }}
+            type=raw,value=jazzy-${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
+      - name: Authenticate to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish tested runtime image
+        id: publish
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Docker/jazzy/Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=pylon-jazzy
+          cache-to: type=gha,mode=max,scope=pylon-jazzy
+      - name: Summarize pull command
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          {
+            echo '### PyLoN / ROS 2 Jazzy'
+            echo "Source commit: $GITHUB_SHA"
+            echo "Immutable image: \`$IMAGE@$DIGEST\`"
+            echo '```bash'
+            echo "docker pull $IMAGE@$DIGEST"
+            echo '```'
+            echo 'First publication: check the package visibility in GitHub Packages before distributing to anonymous users.'
+          } >> "$GITHUB_STEP_SUMMARY"

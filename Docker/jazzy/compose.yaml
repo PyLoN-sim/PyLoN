@@ -1,0 +1,14 @@
+# Linux Docker Engine: KSP runs on the host, using loopback UDP.
+services:
+  bridge:
+    image: ${PYLON_JAZZY_IMAGE:-ghcr.io/pylon-sim/pylon-bridge:jazzy}
+    build:
+      context: ../..
+      dockerfile: Docker/jazzy/Dockerfile
+      target: runtime
+    network_mode: host
+    init: true
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      ROS_AUTOMATIC_DISCOVERY_RANGE: ${ROS_AUTOMATIC_DISCOVERY_RANGE:-LOCALHOST}
+    stop_grace_period: 10s

@@ -36,3 +36,37 @@ ZIP直下は`GameData/PyLoN/`で、`LICENSE`、`Plugins/PyLoN.dll`、`Config/`�
 3. `dist/`のZIPと`.zip.sha256`を添付し、変更内容を記載して公開します。候補版はpre-releaseにします。
 
 GitHubが自動生成する「Source code (zip/tar.gz)」はMOD配布物ではありません。利用者には添付した`PyLoN-vX.Y.Z.zip`を案内してください。
+
+## ROS 2 Jazzyコンテナの配布（GHCR）
+
+ビルド済みROSコンテナはGitHub PackagesのContainer registryへ配布します。Dockerfileと起動設定は`Docker/jazzy/`に置き、MODのZIPは引き続きGitHub Releasesへ添付します。ROSコンテナのビルドにKSPやゲームDLLは不要です。
+
+`.github/workflows/jazzy-container.yml`は次の順序で実行します。
+
+1. `test` stageをビルドし、bridgeと機体制御の回帰テストを実行する。
+2. 成功した同じコミットの`runtime` stageをビルドする。
+3. workflowの`GITHUB_TOKEN`（`packages: write`）で`ghcr.io/pylon-sim/pylon-bridge`へpushする。
+
+PRはテストのみです。`main`への関連ファイルのpush、GitHub Releaseの公開、Actionsの「Jazzy container」→「Run workflow」で配布できます。手動実行は選択したrefをビルドするため、公開するソースを確認してから実行します。対象platformは実KSPで検証した`linux/amd64`です。
+
+| タグ | 意味 |
+| --- | --- |
+| `jazzy` | mainの更新、手動実行、通常リリースで更新するJazzyイメージ |
+| `jazzy-sha-<40桁のcommit SHA>` | ビルドしたソースのコミットを示すタグ |
+| `jazzy-vX.Y.Z` | 公開したGitHub Releaseのタグに対応するイメージ |
+
+pre-releaseの公開はバージョンタグとSHAタグだけを作り、`jazzy`を更新しません。再ビルドでapt依存が変わる可能性があるため、同じイメージを固定する用途にはタグではなくworkflowのSummaryに出る`image@sha256:...`を使用します。
+
+### 初回公開の確認
+
+初回のGHCRパッケージはprivateになるため、組織のPackagesで`pylon-bridge`を開き、Package settingsでvisibilityを**Public**にします。Publicにする対象がPyLoNのROSイメージであることを確認してください。公開リポジトリだけではパッケージのPublic設定は保証されません。
+
+workflow成功後、ログインしていないDocker環境でpullできることを確認します。
+
+```bash
+mkdir -p /tmp/pylon-ghcr-anonymous
+DOCKER_CONFIG=/tmp/pylon-ghcr-anonymous docker pull ghcr.io/pylon-sim/pylon-bridge:jazzy
+docker run --rm ghcr.io/pylon-sim/pylon-bridge:jazzy ros2 pkg executables pylon_bridge
+```
+
+GitHubの[Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)を参照してください。利用者の起動・接続確認は[Getting Started](https://github.com/PyLoN-sim/docs/blob/main/guide/getting-started.md)にまとめます。
